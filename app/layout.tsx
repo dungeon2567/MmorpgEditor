@@ -1,8 +1,10 @@
 import '@mantine/core/styles.css';
 
 import React from 'react';
-import { ColorSchemeScript, mantineHtmlProps, MantineProvider } from '@mantine/core';
+import { ColorSchemeScript, Group, mantineHtmlProps, MantineProvider, Box } from '@mantine/core';
 import { theme } from '../theme';
+import { NavbarNested } from '../components/Navbar/Navbar';
+import { Header } from '../components/Header/Header';
 
 export const metadata = {
   title: 'Mantine Next.js template',
@@ -21,7 +23,15 @@ export default function RootLayout({ children }: { children: any }) {
         />
       </head>
       <body>
-        <MantineProvider theme={theme}>{children}</MantineProvider>
+        <MantineProvider theme={theme}>
+          <Box>
+            <Header />
+            <Group align="flex-start">
+              <NavbarNested />
+              {children}
+            </Group>
+          </Box>
+        </MantineProvider>
       </body>
     </html>
   );
