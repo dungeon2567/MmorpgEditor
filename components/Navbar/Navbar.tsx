@@ -1,6 +1,6 @@
 "use client"
 
-import { ScrollArea } from '@mantine/core';
+import { ScrollArea, rem } from '@mantine/core';
 import {
   IconNotes,
   IconCalendarStats,
@@ -11,7 +11,6 @@ import {
   IconLock,
 } from '@tabler/icons-react';
 import { LinksGroup } from './LinksGroup';
-import classes from './Navbar.module.css';
 
 const mockdata = [
   { label: 'Attributes', icon: IconGauge, link: '/attributes' },
@@ -53,9 +52,25 @@ export function NavbarNested() {
   const links = mockdata.map((item) => <LinksGroup {...item} key={item.label} />);
 
   return (
-    <nav className={classes.navbar}>
-      <ScrollArea className={classes.links}>
-        <div className={classes.linksInner}>{links}</div>
+    <nav style={{
+      height: 'calc(100vh - 60px)',
+      width: rem(300),
+      padding: 'var(--mantine-spacing-md)',
+      display: 'flex',
+      flexDirection: 'column',
+      borderRight: `${rem(1)} solid var(--mantine-color-gray-3)`,
+    }}>
+      <ScrollArea style={{
+        flex: 1,
+        marginLeft: 'calc(var(--mantine-spacing-md) * -1)',
+        marginRight: 'calc(var(--mantine-spacing-md) * -1)',
+      }}>
+        <div style={{
+          paddingTop: 'var(--mantine-spacing-xl)',
+          paddingBottom: 'var(--mantine-spacing-xl)',
+        }}>
+          {links}
+        </div>
       </ScrollArea>
     </nav>
   );

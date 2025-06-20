@@ -12,7 +12,6 @@ import {
   rem,
 } from '@mantine/core';
 import { IconCalendarStats, IconChevronRight } from '@tabler/icons-react';
-import classes from './LinksGroup.module.css';
 
 interface LinksGroupProps {
   icon: React.FC<any>;
@@ -30,7 +29,21 @@ export function LinksGroup({ icon: Icon, label, initiallyOpened, links, link }: 
   const items = (hasLinks ? links : []).map((link) => (
     <Text
       component={Link}
-      className={classes.link}
+      style={{
+        display: 'block',
+        textDecoration: 'none',
+        fontSize: 'var(--mantine-font-size-sm)',
+        color: 'var(--mantine-color-gray-7)',
+        padding: `${rem(8)} var(--mantine-spacing-sm)`,
+        marginLeft: rem(30),
+        borderTopRightRadius: 'var(--mantine-radius-sm)',
+        borderBottomRightRadius: 'var(--mantine-radius-sm)',
+        fontWeight: 500,
+        '&:hover': {
+          backgroundColor: 'var(--mantine-color-gray-0)',
+          color: 'var(--mantine-color-black)',
+        },
+      }}
       href={link.link}
       key={link.label}
     >
@@ -42,7 +55,22 @@ export function LinksGroup({ icon: Icon, label, initiallyOpened, links, link }: 
     return (
       <Text
         component={Link}
-        className={classes.control}
+        style={{
+          fontWeight: 500,
+          display: 'block',
+          textDecoration: 'none',
+          padding: `${rem(8)} var(--mantine-spacing-sm)`,
+          paddingLeft: 'var(--mantine-spacing-md)',
+          marginLeft: 'var(--mantine-spacing-md)',
+          fontSize: 'var(--mantine-font-size-sm)',
+          color: 'var(--mantine-color-gray-7)',
+          borderTopRightRadius: 'var(--mantine-radius-sm)',
+          borderBottomRightRadius: 'var(--mantine-radius-sm)',
+          '&:hover': {
+            backgroundColor: 'var(--mantine-color-gray-0)',
+            color: 'var(--mantine-color-black)',
+          },
+        }}
         href={link}
       >
         <Group justify="space-between" gap={0}>
@@ -59,7 +87,25 @@ export function LinksGroup({ icon: Icon, label, initiallyOpened, links, link }: 
 
   return (
     <>
-      <UnstyledButton onClick={() => setOpened((o) => !o)} className={classes.control}>
+      <UnstyledButton 
+        onClick={() => setOpened((o) => !o)} 
+        style={{
+          fontWeight: 500,
+          display: 'block',
+          width: '100%',
+          padding: `${rem(8)} var(--mantine-spacing-sm)`,
+          paddingLeft: 'var(--mantine-spacing-md)',
+          marginLeft: 'var(--mantine-spacing-md)',
+          fontSize: 'var(--mantine-font-size-sm)',
+          color: 'var(--mantine-color-gray-7)',
+          borderTopRightRadius: 'var(--mantine-radius-sm)',
+          borderBottomRightRadius: 'var(--mantine-radius-sm)',
+          '&:hover': {
+            backgroundColor: 'var(--mantine-color-gray-0)',
+            color: 'var(--mantine-color-black)',
+          },
+        }}
+      >
         <Group justify="space-between" gap={0}>
           <Box style={{ display: 'flex', alignItems: 'center' }}>
             <ThemeIcon variant="light" size={30}>
@@ -69,12 +115,12 @@ export function LinksGroup({ icon: Icon, label, initiallyOpened, links, link }: 
           </Box>
           {hasLinks && (
             <IconChevronRight
-              className={classes.chevron}
               stroke={1.5}
               style={{
                 width: rem(16),
                 height: rem(16),
                 transform: opened ? 'rotate(90deg)' : 'none',
+                transition: 'transform 200ms ease',
               }}
             />
           )}
