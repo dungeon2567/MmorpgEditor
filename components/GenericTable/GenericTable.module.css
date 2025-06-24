@@ -1,0 +1,283 @@
+/* Ultra Professional Table Styling */
+.tableContainer {
+  border-radius: var(--mantine-radius-lg);
+  overflow: hidden;
+  box-shadow: 
+    0 20px 25px -5px light-dark(rgba(0, 0, 0, 0.1), rgba(0, 0, 0, 0.5)),
+    0 10px 10px -5px light-dark(rgba(0, 0, 0, 0.04), rgba(0, 0, 0, 0.3)),
+    0 0 0 1px light-dark(rgba(0, 0, 0, 0.05), rgba(255, 255, 255, 0.05));
+  border: 1px solid light-dark(var(--mantine-color-gray-2), var(--mantine-color-dark-4));
+  background: light-dark(
+    var(--mantine-color-white),
+    var(--mantine-color-dark-7)
+  );
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+}
+
+.table {
+  margin: 0 !important;
+  border-collapse: separate;
+  border-spacing: 0;
+}
+
+.tableHeader {
+  background: light-dark(
+    linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%),
+    linear-gradient(180deg, var(--mantine-color-dark-5) 0%, var(--mantine-color-dark-6) 100%)
+  );
+  border-bottom: 1px solid light-dark(var(--mantine-color-gray-3), var(--mantine-color-dark-4));
+  position: relative;
+  overflow: hidden;
+}
+
+.tableHeader::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, 
+    transparent 0%, 
+    light-dark(var(--mantine-color-blue-5), var(--mantine-color-blue-4)) 25%,
+    light-dark(var(--mantine-color-blue-6), var(--mantine-color-blue-5)) 50%,
+    light-dark(var(--mantine-color-blue-5), var(--mantine-color-blue-4)) 75%,
+    transparent 100%);
+}
+
+.tableHeaderCell {
+  font-weight: 600;
+  font-size: 0.875rem;
+  color: light-dark(var(--mantine-color-gray-8), var(--mantine-color-gray-1));
+  padding: 1rem 1.25rem !important;
+  border-right: 1px solid light-dark(var(--mantine-color-gray-2), var(--mantine-color-dark-5));
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+  white-space: nowrap;
+  background: transparent;
+}
+
+.tableHeaderCell:last-child {
+  border-right: none;
+}
+
+.tableHeaderCellSortable {
+  cursor: pointer;
+}
+
+.tableHeaderCellSortable:hover {
+  background: light-dark(var(--mantine-color-blue-0), var(--mantine-color-blue-9));
+  color: light-dark(var(--mantine-color-blue-7), var(--mantine-color-blue-1));
+}
+
+.sortIcon {
+  margin-left: 0.5rem;
+  opacity: 0.7;
+  transition: all 0.2s ease;
+  font-size: 0.875rem;
+  color: light-dark(var(--mantine-color-blue-6), var(--mantine-color-blue-3));
+}
+
+.tableRow {
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  cursor: pointer;
+  border-bottom: 1px solid light-dark(var(--mantine-color-gray-2), var(--mantine-color-dark-6));
+  position: relative;
+}
+
+.tableRow:hover {
+  background: light-dark(
+    var(--mantine-color-blue-0),
+    var(--mantine-color-blue-9)
+  );
+  box-shadow: 
+    0 4px 6px -1px light-dark(rgba(0, 0, 0, 0.1), rgba(0, 0, 0, 0.3)),
+    0 2px 4px -1px light-dark(rgba(0, 0, 0, 0.06), rgba(0, 0, 0, 0.2));
+}
+
+.tableRow:last-child {
+  border-bottom: none;
+}
+
+.tableCell {
+  padding: 1rem 1.25rem !important;
+  border-right: 1px solid light-dark(var(--mantine-color-gray-2), var(--mantine-color-dark-6));
+  vertical-align: middle;
+  transition: all 0.2s ease;
+  position: relative;
+  background: transparent;
+}
+
+.tableCell:last-child {
+  border-right: none;
+}
+
+.cellText {
+  color: light-dark(var(--mantine-color-gray-7), var(--mantine-color-gray-2));
+  font-weight: 500;
+  font-size: 0.875rem;
+  line-height: 1.5;
+}
+
+.cellTextDimmed {
+  color: light-dark(var(--mantine-color-gray-5), var(--mantine-color-dark-3));
+  font-style: italic;
+  font-weight: 400;
+}
+
+.cellBadge {
+  font-weight: 600;
+  font-size: 0.75rem;
+  padding: 0.25rem 0.5rem;
+  border-radius: var(--mantine-radius-sm);
+  background: light-dark(var(--mantine-color-blue-1), var(--mantine-color-blue-8));
+  color: light-dark(var(--mantine-color-blue-7), var(--mantine-color-blue-1));
+  border: 1px solid light-dark(var(--mantine-color-blue-3), var(--mantine-color-blue-6));
+}
+
+.actionsCell {
+  width: 120px;
+  text-align: center;
+}
+
+.actionButton {
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  border-radius: var(--mantine-radius-sm);
+}
+
+.actionButton:hover {
+  transform: scale(1.1);
+  box-shadow: 
+    0 2px 4px -1px light-dark(rgba(0, 0, 0, 0.1), rgba(0, 0, 0, 0.3)),
+    0 1px 2px -1px light-dark(rgba(0, 0, 0, 0.1), rgba(0, 0, 0, 0.3));
+}
+
+.editButton:hover {
+  background-color: light-dark(var(--mantine-color-blue-1), var(--mantine-color-blue-8));
+  color: light-dark(var(--mantine-color-blue-7), var(--mantine-color-blue-1));
+}
+
+.deleteButton:hover {
+  background-color: light-dark(var(--mantine-color-red-1), var(--mantine-color-red-8));
+  color: light-dark(var(--mantine-color-red-7), var(--mantine-color-red-1));
+}
+
+.emptyState {
+  text-align: center;
+  padding: 3rem 1rem;
+  color: light-dark(var(--mantine-color-gray-5), var(--mantine-color-dark-3));
+}
+
+.emptyStateIcon {
+  font-size: 3rem;
+  margin-bottom: 1rem;
+  opacity: 0.5;
+}
+
+.emptyStateText {
+  font-size: 1.125rem;
+  font-weight: 500;
+  margin-bottom: 0.5rem;
+}
+
+.emptyStateSubtext {
+  font-size: 0.875rem;
+  opacity: 0.7;
+}
+
+/* Header Section */
+.tableHeader {
+  margin-bottom: 1.5rem;
+}
+
+.headerTitle {
+  color: light-dark(var(--mantine-color-gray-9), var(--mantine-color-dark-0));
+  font-weight: 700;
+  font-size: 1.75rem;
+  margin: 0;
+}
+
+.createButton {
+  background: linear-gradient(135deg, 
+    light-dark(var(--mantine-color-blue-6), var(--mantine-color-blue-7)) 0%, 
+    light-dark(var(--mantine-color-blue-7), var(--mantine-color-blue-8)) 100%);
+  border: none;
+  color: white;
+  font-weight: 600;
+  font-size: 0.875rem;
+  padding: 0.625rem 1.25rem;
+  border-radius: var(--mantine-radius-md);
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 
+    0 4px 6px -1px light-dark(rgba(59, 130, 246, 0.3), rgba(59, 130, 246, 0.4)),
+    0 2px 4px -1px light-dark(rgba(59, 130, 246, 0.2), rgba(59, 130, 246, 0.3));
+}
+
+.createButton:hover {
+  background: linear-gradient(135deg, 
+    light-dark(var(--mantine-color-blue-5), var(--mantine-color-blue-6)) 0%, 
+    light-dark(var(--mantine-color-blue-6), var(--mantine-color-blue-7)) 100%);
+  transform: translateY(-1px);
+  box-shadow: 
+    0 6px 8px -1px light-dark(rgba(59, 130, 246, 0.4), rgba(59, 130, 246, 0.5)),
+    0 3px 6px -1px light-dark(rgba(59, 130, 246, 0.3), rgba(59, 130, 246, 0.4));
+}
+
+.createButton:active {
+  transform: translateY(0);
+}
+
+/* Loading and enhanced states */
+.loadingOverlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: light-dark(
+    linear-gradient(135deg, rgba(255, 255, 255, 0.9) 0%, rgba(248, 250, 252, 0.95) 100%),
+    linear-gradient(135deg, rgba(0, 0, 0, 0.8) 0%, rgba(17, 24, 39, 0.9) 100%)
+  );
+  backdrop-filter: blur(8px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--mantine-radius-xl);
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+  .tableHeaderCell,
+  .tableCell {
+    padding: 0.5rem !important;
+    font-size: 0.8rem;
+  }
+  
+  .headerTitle {
+    font-size: 1.5rem;
+  }
+  
+  .createButton {
+    padding: 0.5rem 0.75rem;
+    font-size: 0.875rem;
+  }
+}
+
+/* Striped rows for better readability */
+.tableRow:nth-child(even) {
+  background-color: light-dark(var(--mantine-color-gray-0), var(--mantine-color-dark-8));
+}
+
+.tableRow:nth-child(even):hover {
+  background-color: light-dark(var(--mantine-color-blue-0), var(--mantine-color-blue-9));
+}
+
+/* Sort indicators */
+.sortIcon {
+  margin-left: 0.5rem;
+  opacity: 0.7;
+  transition: all 0.2s ease;
+  font-size: 0.875rem;
+  color: light-dark(var(--mantine-color-blue-6), var(--mantine-color-blue-3));
+} 

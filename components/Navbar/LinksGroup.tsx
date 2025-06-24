@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 import {
   Group,
   Box,
@@ -25,53 +26,63 @@ interface LinksGroupProps {
 export function LinksGroup({ icon: Icon, label, initiallyOpened, links, link }: LinksGroupProps) {
   const hasLinks = Array.isArray(links);
   const hasDirectLink = !!link;
-  const [opened, setOpened] = useState(initiallyOpened || false);
+  const pathname = usePathname();
   
-  const items = (hasLinks ? links : []).map((link) => (
-    <Text
-      component={Link}
-      href={link.link}
-      key={link.label}
-      size="sm"
-      c="dimmed"
-      fw={500}
-      style={{
-        display: 'block',
-        textDecoration: 'none',
-        padding: `${rem(8)} var(--mantine-spacing-sm)`,
-        marginLeft: rem(30),
-        borderRadius: 'var(--mantine-radius-sm)',
-      }}
-      className={classes.navbarLink}
-    >
-      {link.label}
-    </Text>
-  ));
+  // Check if any sub-links are active
+  const hasActiveSubLink = hasLinks && links?.some(link => pathname === link.link);
+  
+  // Auto-open group if it contains an active link, or use initiallyOpened
+  const [opened, setOpened] = useState(initiallyOpened || hasActiveSubLink || false);
+  
+  const items = (hasLinks ? links : []).map((link) => {
+    const isActive = pathname === link.link;
+    
+    return (
+      <Text
+        component={Link}
+        href={link.link}
+        key={link.label}
+        size="sm"
+        fw={isActive ? 600 : 500}
+        style={{
+          display: 'block',
+          textDecoration: 'none',
+          padding: `${rem(4)} ${rem(8)}`,
+          marginLeft: rem(24),
+          borderRadius: 'var(--mantine-radius-sm)',
+        }}
+        className={`${classes.navbarLink} ${classes.navbarSubLink} ${isActive ? classes.navbarSubLinkActive : ''}`}
+      >
+        {link.label}
+      </Text>
+    );
+  });
 
   if (hasDirectLink) {
+    const isActive = pathname === link;
+    
     return (
       <Text
         component={Link}
         href={link}
-        fw={500}
+        fw={isActive ? 600 : 500}
         size="sm"
-        c="dimmed"
         style={{
           display: 'block',
           textDecoration: 'none',
-          padding: `${rem(8)} var(--mantine-spacing-sm)`,
-          paddingLeft: 'var(--mantine-spacing-md)',
-          marginLeft: 'var(--mantine-spacing-md)',
+          padding: `${rem(6)} ${rem(8)}`,
+          paddingLeft: rem(8),
+          marginLeft: rem(8),
           borderRadius: 'var(--mantine-radius-sm)',
         }}
-        className={classes.navbarLink}
+        className={`${classes.navbarLink} ${isActive ? classes.navbarLinkActive : ''}`}
       >
         <Group justify="space-between" gap={0}>
           <Box style={{ display: 'flex', alignItems: 'center' }}>
-            <ThemeIcon variant="light" size={30}>
-              <Icon style={{ width: rem(18), height: rem(18) }} />
+            <ThemeIcon variant="light" size={24}>
+              <Icon style={{ width: rem(14), height: rem(14) }} />
             </ThemeIcon>
-            <Box ml="md">{label}</Box>
+            <Box ml="sm">{label}</Box>
           </Box>
         </Group>
       </Text>
@@ -83,31 +94,31 @@ export function LinksGroup({ icon: Icon, label, initiallyOpened, links, link }: 
       <UnstyledButton 
         onClick={() => setOpened((o) => !o)} 
         style={{
-          fontWeight: 500,
+          fontWeight: hasActiveSubLink ? 600 : 500,
           display: 'block',
           width: '100%',
-          padding: `${rem(8)} var(--mantine-spacing-sm)`,
-          paddingLeft: 'var(--mantine-spacing-md)',
-          marginLeft: 'var(--mantine-spacing-md)',
+          padding: `${rem(6)} ${rem(8)}`,
+          paddingLeft: rem(8),
+          marginLeft: rem(8),
           borderRadius: 'var(--mantine-radius-sm)',
         }}
-        className="navbar-link"
+        className={`${classes.navbarGroupHeader} ${hasActiveSubLink ? classes.navbarLinkActive : ''}`}
       >
         <Group justify="space-between" gap={0}>
           <Box style={{ display: 'flex', alignItems: 'center' }}>
-            <ThemeIcon variant="light" size={30}>
-              <Icon style={{ width: rem(18), height: rem(18) }} />
+            <ThemeIcon variant="light" size={24}>
+              <Icon style={{ width: rem(14), height: rem(14) }} />
             </ThemeIcon>
-            <Box ml="md">{label}</Box>
+            <Box ml="sm">{label}</Box>
           </Box>
           {hasLinks && (
             <IconChevronRight
               stroke={1.5}
               style={{
-                width: rem(16),
-                height: rem(16),
+                width: rem(14),
+                height: rem(14),
                 transform: opened ? 'rotate(90deg)' : 'none',
-                transition: 'transform 200ms ease',
+                transition: 'transform 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
               }}
             />
           )}

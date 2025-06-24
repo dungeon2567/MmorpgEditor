@@ -1,5 +1,5 @@
-import { ActorsPageWrapper } from './ActorsPageWrapper';
+import { AutoEntityPage } from '../../components/GenericPage/AutoEntityPage';
 
 export default function Page() {
-  return <ActorsPageWrapper />;
+  return <AutoEntityPage />;
 } 

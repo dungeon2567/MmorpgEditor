@@ -1,7 +1,13 @@
-"use client"
+import { ZodTypeAny } from 'zod';
+import { EntityType } from './storeAdapter';
 
-import { GenericTable } from '../../components/GenericTable/GenericTable';
-import { ActorSchema, Actor } from './schema';
+// Import schemas
+import { ActorSchema } from '../../app/actors/schema';
+import { EffectSchema } from '../../app/effects/schema';
+import { attributesSchema } from '../../app/attributes/schema';
+
+// Import sample data for actors
+import { Actor } from '../../app/actors/schema';
 
 const sampleActors: Actor[] = [
   {
@@ -147,25 +153,45 @@ const sampleActors: Actor[] = [
   },
 ];
 
-export default function ActorsPage() {
-  const handleSave = (actor: Actor) => {
-    console.log('Saving actor:', actor);
-    // Here you would typically save to your backend
-  };
+export interface EntityConfig {
+  entityType: EntityType;
+  schema: ZodTypeAny;
+  title: string;
+  createButtonText: string;
+  useStaticData?: boolean;
+  staticData?: any[];
+  containerSize?: 'xs' | 'sm' | 'md' | 'lg' | 'xl';
+  showTitle?: boolean;
+}
 
-  const handleDelete = (actor: Actor) => {
-    console.log('Deleting actor:', actor);
-    // Here you would typically delete from your backend
-  };
+export const entityConfigs: Record<string, EntityConfig> = {
+  actors: {
+    entityType: 'actors',
+    schema: ActorSchema,
+    title: 'Actors',
+    createButtonText: 'Create New Actor',
+    useStaticData: true,
+    staticData: sampleActors,
+  },
+  effects: {
+    entityType: 'effects',
+    schema: EffectSchema,
+    title: 'Effects',
+    createButtonText: 'Create New Effect',
+  },
+  attributes: {
+    entityType: 'attributes',
+    schema: attributesSchema,
+    title: 'Attributes',
+    createButtonText: 'Create New Attribute',
+  },
+};
 
-  return (
-    <GenericTable
-      zodSchema={ActorSchema}
-      data={sampleActors}
-      title="Actors"
-      createButtonText="Create New Actor"
-      onSave={handleSave}
-      onDelete={handleDelete}
-    />
-  );
+// Helper function to get entity config
+export function getEntityConfig(entityKey: string): EntityConfig {
+  const config = entityConfigs[entityKey];
+  if (!config) {
+    throw new Error(`Entity config not found for: ${entityKey}`);
+  }
+  return config;
 } 

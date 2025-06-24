@@ -28,9 +28,14 @@ import {
   MantineTheme,
   Tabs,
   Tooltip,
+  Drawer,
+  Loader,
+  Alert,
+  Center,
 } from '@mantine/core';
-import { IconEdit, IconTrash, IconPlus, IconX, IconDeviceFloppy, IconArrowBackUp, IconChevronDown, IconChevronRight, IconGripVertical } from '@tabler/icons-react';
-import { useState, useMemo, useEffect, useCallback } from 'react';
+import { IconEdit, IconTrash, IconPlus, IconX, IconDeviceFloppy, IconArrowBackUp, IconChevronDown, IconChevronRight, IconGripVertical, IconSortAscending, IconSortDescending, IconDatabaseOff } from '@tabler/icons-react';
+import classes from './GenericTable.module.css';
+import { useState, useMemo, useEffect, useCallback, useRef, forwardRef, useImperativeHandle } from 'react';
 import { z, ZodTypeAny, ZodObject, ZodString, ZodNumber, ZodEnum, ZodBoolean, ZodArray, ZodAny, ZodLazy, ZodOptional, ZodNullable, ZodUnion, ZodDiscriminatedUnion } from 'zod';
 import { FormulaEditor } from '../FormulaEditor/FormulaEditor';
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, DragEndEvent } from '@dnd-kit/core';
@@ -822,6 +827,60 @@ const setByPath = (obj: any, path: string, value: any) => {
     return newObj;
 };
 
+// Helper function to generate user-friendly labels for table headers
+const generateTableLabel = (key: string, fieldSchema: any): string => {
+  // Special handling for common field names
+  const specialLabels: Record<string, string> = {
+    'Name': 'Name',
+    'Asset': 'Asset',
+    'Lifetime': 'Lifetime',
+    'Period': 'Period',
+    'Duration': 'Duration',
+    'MaxStacks': 'Max Stacks',
+    'Potency': 'Potency',
+    'Radius': 'Radius',
+    'Angle': 'Angle',
+    'Target': 'Target',
+    'Min': 'Min',
+    'Max': 'Max',
+    'type': 'Type',
+    'Type': 'Type',
+    'Time': 'Time',
+    'Value': 'Value',
+    'Operation': 'Operation',
+    'Attribute': 'Attribute'
+  };
+
+  // If we have a special label for this key, use it
+  if (specialLabels[key]) {
+    return specialLabels[key];
+  }
+
+  // Try to get a simple label from the metadata
+  if (fieldSchema.description) {
+    try {
+      const meta = JSON.parse(fieldSchema.description);
+      // If there's a simple description in metadata and it's short, use it
+      if (meta.description && meta.description.length < 25) {
+        return meta.description;
+      }
+    } catch (e) {
+      // If it's not JSON, check if it's a short description
+      if (fieldSchema.description.length < 25) {
+        return fieldSchema.description;
+      }
+    }
+  }
+  
+  // Convert camelCase/PascalCase to Title Case
+  const titleCase = key
+    .replace(/([A-Z])/g, ' $1') // Add space before capital letters
+    .replace(/^./, str => str.toUpperCase()) // Capitalize first letter
+    .trim();
+  
+  return titleCase;
+};
+
 function ObjectEditor({ schema, data, onChange, rootData }: { schema: ZodTypeAny, data: any, onChange: (data: any) => void, rootData?: any }) {
     const theme = useMantineTheme();
     const { colorScheme } = useMantineColorScheme();
@@ -896,14 +955,18 @@ interface GenericTableProps<T extends ZodTypeAny> {
   onSave?: (item: z.infer<T>) => void;
 }
 
-export function GenericTable<T extends ZodTypeAny>({
+export interface GenericTableRef {
+  triggerCreate: () => void;
+}
+
+export const GenericTable = forwardRef<GenericTableRef, GenericTableProps<any>>(function GenericTable<T extends ZodTypeAny>({
   zodSchema,
   data,
   title,
   createButtonText = 'Create New',
   onDelete,
   onSave
-}: GenericTableProps<T>) {
+}: GenericTableProps<T>, ref: React.Ref<GenericTableRef>) {
   const [sortColumn, setSortColumn] = useState<string | null>(null);
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
   const [selectedItem, setSelectedItem] = useState<z.infer<T> | null>(null);
@@ -931,15 +994,7 @@ export function GenericTable<T extends ZodTypeAny>({
     return [
         ...visibleColumns.map(key => {
             const fieldSchema = (shape as any)[key];
-            let label = fieldSchema.description || key;
-            if (fieldSchema.description) {
-                try {
-                    const meta = JSON.parse(fieldSchema.description);
-                    if (meta.description) {
-                        label = meta.description;
-                    }
-                } catch (e) { /* Not JSON */ }
-            }
+            const label = generateTableLabel(key, fieldSchema);
             return { key, label, sortable: true };
         }),
         { key: 'actions', label: 'Actions', sortable: false }
@@ -978,6 +1033,11 @@ export function GenericTable<T extends ZodTypeAny>({
     setEditHistory([newItem as any]);
     setHistoryIndex(0);
   };
+
+  // Expose create function to parent component
+  useImperativeHandle(ref, () => ({
+    triggerCreate: handleCreate
+  }), [handleCreate]);
 
   const handleSave = () => {
     if (editingItem) {
@@ -1113,150 +1173,260 @@ export function GenericTable<T extends ZodTypeAny>({
         fieldSchema = fieldSchema.unwrap();
     }
 
+    // Handle null/undefined values
+    if (value === null || value === undefined) {
+      return (
+        <Text size="sm" className={classes.cellTextDimmed}>
+          —
+        </Text>
+      );
+    }
+
+    // Handle enum values with styled badges
     if (fieldSchema instanceof ZodEnum) {
-        return <Badge>{value}</Badge>
+        return (
+          <Badge 
+            variant="light" 
+            size="sm"
+            className={classes.cellBadge}
+          >
+            {value}
+          </Badge>
+        );
     }
 
+    // Handle boolean values
+    if (typeof value === 'boolean') {
+      return (
+        <Badge 
+          variant="light" 
+          color={value ? 'green' : 'red'}
+          size="sm"
+        >
+          {value ? 'Yes' : 'No'}
+        </Badge>
+      );
+    }
+
+    // Handle numbers with proper formatting
+    if (typeof value === 'number') {
+      return (
+        <Text size="sm" className={classes.cellText}>
+          {value.toLocaleString()}
+        </Text>
+      );
+    }
+
+    // Handle objects
     if (value instanceof Object) {
-        return <Text size="sm" c="dimmed">[Object]</Text>
+        return (
+          <Text size="sm" className={classes.cellTextDimmed}>
+            [Object]
+          </Text>
+        );
     }
 
+    // Handle strings (including formulas)
+    const stringValue = String(value ?? '');
+    const isFormula = stringValue.includes('$') || stringValue.includes('(');
+    
     return (
-      <Text size="sm" c="dimmed">
-        {String(value ?? '')}
+      <Text 
+        size="sm" 
+        className={isFormula ? classes.cellTextDimmed : classes.cellText}
+        style={isFormula ? { fontFamily: 'monospace' } : undefined}
+      >
+        {stringValue}
       </Text>
     );
   };
 
   return (
-    <Grid>
-        <Grid.Col span="auto">
-            <Group justify="space-between" align="center" mb="md">
-                <Title order={2}>{title}</Title>
-                <Button onClick={handleCreate} leftSection={<IconPlus size={16} />}>
-                  {createButtonText}
-                </Button>
-            </Group>
-            <Paper withBorder radius="md">
-                <ScrollArea>
-                  <Table miw={800} verticalSpacing="sm" highlightOnHover withColumnBorders withRowBorders>
-                    <Table.Thead>
-                      <Table.Tr>
-                        {columns.map((column) => (
-                          <Table.Th
-                            key={column.key}
-                            style={{ cursor: column.sortable ? 'pointer' : 'default' }}
-                            onClick={() => column.sortable && handleSort(column.key)}
-                          >
-                            <Group gap="xs">
-                              <Text>{column.label}</Text>
-                              {column.sortable && sortColumn === column.key && (
-                                <Text size="xs" c="dimmed">
-                                  {sortDirection === 'asc' ? '↑' : '↓'}
-                                </Text>
-                              )}
-                            </Group>
-                          </Table.Th>
-                        ))}
-                      </Table.Tr>
-                    </Table.Thead>
-                    <Table.Tbody>
-                      {sortedData.map((item: any, index: number) => (
-                        <Table.Tr key={item.id || item.Name || index} onClick={() => handleRowClick(item)} style={{ cursor: 'pointer' }}>
-                          {columns.map((column) => (
-                            <Table.Td key={column.key}>
-                              {column.key === 'actions' ? (
-                                <Group gap="xs">
-                                  <ActionIcon variant="subtle" color="blue" size="sm" onClick={(e) => { e.stopPropagation(); handleRowClick(item); }}>
-                                    <IconEdit size={16} />
-                                  </ActionIcon>
-                                  <ActionIcon variant="subtle" color="red" size="sm" onClick={(e) => { e.stopPropagation(); handleDeleteClick(item); }}>
-                                    <IconTrash size={16} />
-                                  </ActionIcon>
-                                </Group>
-                              ) : (
-                                renderCell(item, column.key)
-                              )}
-                            </Table.Td>
-                          ))}
-                        </Table.Tr>
-                      ))}
-                    </Table.Tbody>
-                  </Table>
-                </ScrollArea>
-            </Paper>
-        </Grid.Col>
-        
-        {selectedItem && editingItem && (
-            <Grid.Col span={4}>
-                 <Paper withBorder p="md" radius="md" style={{ minWidth: 600 }}>
-                  <Group justify="space-between" align="center" mb="md">
-                      <Title order={4}>{isCreating ? 'Create Item' : `Edit ${(editingItem as any).name || 'Item'}`}</Title>
-                      <Group gap="xs">
-                        <ActionIcon 
-                          onClick={handleUndo} 
-                          variant="subtle" 
-                          disabled={historyIndex <= 0}
-                          title="Undo (Ctrl+Z)"
-                        >
-                          <IconArrowBackUp size={16} />
-                        </ActionIcon>
-                        <ActionIcon onClick={handleCloseEditor} variant="subtle" color="red">
-                          <IconX size={20} />
-                        </ActionIcon>
-                      </Group>
-                  </Group>
-                  <Divider mb="md" />
-                  <Tabs value={activeTab} onChange={handleTabChange}>
-                    <Tabs.List>
-                      <Tabs.Tab value="visual">Visual Editor</Tabs.Tab>
-                      <Tabs.Tab value="yaml">YAML Editor</Tabs.Tab>
-                    </Tabs.List>
-
-                    <Tabs.Panel value="visual" pt="md">
-                      <div 
-                        style={{ 
-                          height: 500, 
-                          overflowY: 'scroll',
-                          overflowX: 'hidden',
-                          scrollbarGutter: 'stable',
-                          paddingRight: '8px'
-                        }}
+    <Box>
+      <Paper className={classes.tableContainer}>
+        <ScrollArea>
+          <Table className={classes.table}>
+            <Table.Thead className={classes.tableHeader}>
+              <Table.Tr>
+                {columns.map((column) => (
+                  <Table.Th
+                    key={column.key}
+                    className={`${classes.tableHeaderCell} ${
+                      column.sortable ? classes.tableHeaderCellSortable : ''
+                    }`}
+                    onClick={() => column.sortable && handleSort(column.key)}
+                  >
+                    <Group gap="xs" wrap="nowrap">
+                      <Text fw={600}>{column.label}</Text>
+                      {column.sortable && sortColumn === column.key && (
+                        sortDirection === 'asc' ? (
+                          <IconSortAscending size={14} className={classes.sortIcon} />
+                        ) : (
+                          <IconSortDescending size={14} className={classes.sortIcon} />
+                        )
+                      )}
+                    </Group>
+                  </Table.Th>
+                ))}
+              </Table.Tr>
+            </Table.Thead>
+            <Table.Tbody>
+              {sortedData.length === 0 ? (
+                <Table.Tr>
+                  <Table.Td colSpan={columns.length}>
+                    <Center className={classes.emptyState}>
+                      <Stack align="center" gap="md">
+                        <IconDatabaseOff size={48} className={classes.emptyStateIcon} />
+                        <Text className={classes.emptyStateText}>No data available</Text>
+                        <Text className={classes.emptyStateSubtext}>
+                          Click "{createButtonText}" to add your first item
+                        </Text>
+                      </Stack>
+                    </Center>
+                  </Table.Td>
+                </Table.Tr>
+              ) : (
+                sortedData.map((item: any, index: number) => (
+                  <Table.Tr 
+                    key={item.id || item.Name || index} 
+                    onClick={() => handleRowClick(item)} 
+                    className={classes.tableRow}
+                  >
+                    {columns.map((column) => (
+                      <Table.Td 
+                        key={column.key}
+                        className={`${classes.tableCell} ${
+                          column.key === 'actions' ? classes.actionsCell : ''
+                        }`}
                       >
-                        <ObjectEditor
-                          schema={zodSchema}
-                          data={editingItem}
-                          onChange={handleVisualChange}
-                          rootData={tableData}
-                        />
-                      </div>
-                    </Tabs.Panel>
+                        {column.key === 'actions' ? (
+                          <Group gap="xs" justify="center">
+                            <Tooltip label="Edit">
+                              <ActionIcon 
+                                variant="subtle" 
+                                color="blue" 
+                                size="sm" 
+                                onClick={(e) => { e.stopPropagation(); handleRowClick(item); }}
+                                className={`${classes.actionButton} ${classes.editButton}`}
+                              >
+                                <IconEdit size={16} />
+                              </ActionIcon>
+                            </Tooltip>
+                            <Tooltip label="Delete">
+                              <ActionIcon 
+                                variant="subtle" 
+                                color="red" 
+                                size="sm" 
+                                onClick={(e) => { e.stopPropagation(); handleDeleteClick(item); }}
+                                className={`${classes.actionButton} ${classes.deleteButton}`}
+                              >
+                                <IconTrash size={16} />
+                              </ActionIcon>
+                            </Tooltip>
+                          </Group>
+                        ) : (
+                          renderCell(item, column.key)
+                        )}
+                      </Table.Td>
+                    ))}
+                  </Table.Tr>
+                ))
+              )}
+            </Table.Tbody>
+          </Table>
+        </ScrollArea>
+      </Paper>
 
-                    <Tabs.Panel value="yaml" pt="md">
-                      <Editor
-                        height="500px"
-                        language="yaml"
-                        theme="vs-dark"
-                        value={yamlContent}
-                        onChange={handleYamlChange}
-                        options={{
-                          minimap: { enabled: false },
-                          scrollBeyondLastLine: false,
-                          fontSize: 14,
-                          lineNumbers: 'on',
-                          wordWrap: 'on',
-                          automaticLayout: true,
-                        }}
-                      />
-                    </Tabs.Panel>
-                  </Tabs>
-                  <Group justify="flex-end" mt="md">
-                    <Button onClick={handleCancel} variant="default">Cancel</Button>
-                    <Button onClick={handleSave} leftSection={<IconDeviceFloppy size={16}/>}>{isCreating ? 'Create' : 'Save'}</Button>
-                  </Group>
-                </Paper>
-            </Grid.Col>
+      <Drawer
+        opened={selectedItem !== null && editingItem !== null}
+        onClose={handleCloseEditor}
+        position="right"
+        size="xl"
+        title={
+          <Group justify="space-between" w="100%">
+            <Title order={4}>{isCreating ? 'Create Item' : `Edit ${(editingItem as any)?.name || 'Item'}`}</Title>
+            <Group gap="xs">
+              <ActionIcon 
+                onClick={handleUndo} 
+                variant="subtle" 
+                disabled={historyIndex <= 0}
+                title="Undo (Ctrl+Z)"
+              >
+                <IconArrowBackUp size={16} />
+              </ActionIcon>
+            </Group>
+          </Group>
+        }
+        closeButtonProps={{ 'aria-label': 'Close editor' }}
+        overlayProps={{ backgroundOpacity: 0.2 }}
+        styles={{
+          content: {
+            display: 'flex',
+            flexDirection: 'column',
+          },
+          body: {
+            flex: 1,
+            display: 'flex',
+            flexDirection: 'column',
+          },
+        }}
+      >
+        {selectedItem && editingItem && (
+          <Stack h="100%" gap="md">
+            <Tabs value={activeTab} onChange={handleTabChange} style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+              <Tabs.List>
+                <Tabs.Tab value="visual">Visual Editor</Tabs.Tab>
+                <Tabs.Tab value="yaml">YAML Editor</Tabs.Tab>
+              </Tabs.List>
+
+              <Tabs.Panel value="visual" pt="md" style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+                <ScrollArea 
+                  style={{ 
+                    flex: 1,
+                    height: 'calc(100vh - 200px)',
+                  }}
+                  scrollbarSize={8}
+                  offsetScrollbars
+                >
+                  <ObjectEditor
+                    schema={zodSchema}
+                    data={editingItem}
+                    onChange={handleVisualChange}
+                    rootData={tableData}
+                  />
+                </ScrollArea>
+              </Tabs.Panel>
+
+              <Tabs.Panel value="yaml" pt="md" style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+                <Box style={{ flex: 1, height: 'calc(100vh - 200px)' }}>
+                  <Editor
+                    height="100%"
+                    language="yaml"
+                    theme="vs-dark"
+                    value={yamlContent}
+                    onChange={handleYamlChange}
+                    options={{
+                      minimap: { enabled: false },
+                      scrollBeyondLastLine: false,
+                      fontSize: 14,
+                      lineNumbers: 'on',
+                      wordWrap: 'on',
+                      automaticLayout: true,
+                    }}
+                  />
+                </Box>
+              </Tabs.Panel>
+            </Tabs>
+            
+            <Group justify="flex-end" pt="md" style={{ borderTop: '1px solid var(--mantine-color-gray-3)' }}>
+              <Button onClick={handleCancel} variant="default">Cancel</Button>
+              <Button onClick={handleSave} leftSection={<IconDeviceFloppy size={16}/>}>
+                {isCreating ? 'Create' : 'Save'}
+              </Button>
+            </Group>
+          </Stack>
         )}
-    </Grid>
+      </Drawer>
+    </Box>
   );
-} 
+}); 

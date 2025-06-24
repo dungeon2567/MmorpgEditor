@@ -50,7 +50,7 @@ export function Navbar() {
 
   return (
     <ScrollArea className={classes.navbar}>
-      <div style={{ padding: 'var(--mantine-spacing-md)' }}>
+      <div style={{ padding: 'var(--mantine-spacing-sm)' }}>
         {links}
       </div>
     </ScrollArea>
