@@ -29,23 +29,19 @@ export function LinksGroup({ icon: Icon, label, initiallyOpened, links, link }: 
   const items = (hasLinks ? links : []).map((link) => (
     <Text
       component={Link}
+      href={link.link}
+      key={link.label}
+      size="sm"
+      c="dimmed"
+      fw={500}
       style={{
         display: 'block',
         textDecoration: 'none',
-        fontSize: 'var(--mantine-font-size-sm)',
-        color: 'var(--mantine-color-gray-7)',
         padding: `${rem(8)} var(--mantine-spacing-sm)`,
         marginLeft: rem(30),
-        borderTopRightRadius: 'var(--mantine-radius-sm)',
-        borderBottomRightRadius: 'var(--mantine-radius-sm)',
-        fontWeight: 500,
-        '&:hover': {
-          backgroundColor: 'var(--mantine-color-gray-0)',
-          color: 'var(--mantine-color-black)',
-        },
+        borderRadius: 'var(--mantine-radius-sm)',
       }}
-      href={link.link}
-      key={link.label}
+      className="navbar-link"
     >
       {link.label}
     </Text>
@@ -55,23 +51,19 @@ export function LinksGroup({ icon: Icon, label, initiallyOpened, links, link }: 
     return (
       <Text
         component={Link}
+        href={link}
+        fw={500}
+        size="sm"
+        c="dimmed"
         style={{
-          fontWeight: 500,
           display: 'block',
           textDecoration: 'none',
           padding: `${rem(8)} var(--mantine-spacing-sm)`,
           paddingLeft: 'var(--mantine-spacing-md)',
           marginLeft: 'var(--mantine-spacing-md)',
-          fontSize: 'var(--mantine-font-size-sm)',
-          color: 'var(--mantine-color-gray-7)',
-          borderTopRightRadius: 'var(--mantine-radius-sm)',
-          borderBottomRightRadius: 'var(--mantine-radius-sm)',
-          '&:hover': {
-            backgroundColor: 'var(--mantine-color-gray-0)',
-            color: 'var(--mantine-color-black)',
-          },
+          borderRadius: 'var(--mantine-radius-sm)',
         }}
-        href={link}
+        className="navbar-link"
       >
         <Group justify="space-between" gap={0}>
           <Box style={{ display: 'flex', alignItems: 'center' }}>
@@ -96,15 +88,9 @@ export function LinksGroup({ icon: Icon, label, initiallyOpened, links, link }: 
           padding: `${rem(8)} var(--mantine-spacing-sm)`,
           paddingLeft: 'var(--mantine-spacing-md)',
           marginLeft: 'var(--mantine-spacing-md)',
-          fontSize: 'var(--mantine-font-size-sm)',
-          color: 'var(--mantine-color-gray-7)',
-          borderTopRightRadius: 'var(--mantine-radius-sm)',
-          borderBottomRightRadius: 'var(--mantine-radius-sm)',
-          '&:hover': {
-            backgroundColor: 'var(--mantine-color-gray-0)',
-            color: 'var(--mantine-color-black)',
-          },
+          borderRadius: 'var(--mantine-radius-sm)',
         }}
+        className="navbar-link"
       >
         <Group justify="space-between" gap={0}>
           <Box style={{ display: 'flex', alignItems: 'center' }}>

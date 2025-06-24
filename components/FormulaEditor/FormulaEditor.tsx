@@ -18,8 +18,6 @@ import { IconFunction, IconVariable, IconCheck, IconX } from '@tabler/icons-reac
 interface FormulaEditorProps {
   value: string;
   onChange: (value: string) => void;
-  variables?: Record<string, { type: string; description: string; currentValue?: any }>;
-  label?: string;
 }
 
 interface FunctionDefinition {
@@ -109,7 +107,7 @@ const BUILTIN_FUNCTIONS: FunctionDefinition[] = [
   }
 ];
 
-export function FormulaEditor({ value, onChange, variables = {}, label = "Formula" }: FormulaEditorProps) {
+export function FormulaEditor({ value, onChange }: FormulaEditorProps) {
   const [validationError, setValidationError] = useState<string | null>(null);
   const [isValid, setIsValid] = useState(true);
   const [cursorPosition, setCursorPosition] = useState(0);
@@ -118,15 +116,7 @@ export function FormulaEditor({ value, onChange, variables = {}, label = "Formul
   const [selectedIndex, setSelectedIndex] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  // Convert variables prop to VariableDefinition array
-  const variableDefinitions: VariableDefinition[] = Object.entries(variables).map(([name, def]) => ({
-    name,
-    type: def.type,
-    description: def.description,
-    currentValue: def.currentValue
-  }));
-
-  // Create autocomplete data
+  // Create autocomplete data from built-in functions
   const autocompleteData: AutocompleteItem[] = [
     ...BUILTIN_FUNCTIONS.map(func => ({
       value: func.name,
@@ -137,18 +127,10 @@ export function FormulaEditor({ value, onChange, variables = {}, label = "Formul
       icon: IconFunction,
       color: 'blue' as const
     })),
-    ...variableDefinitions.map(variable => ({
-      value: variable.name,
-      label: variable.name,
-      type: 'variable' as const,
-      description: variable.description,
-      icon: IconVariable,
-      color: 'green' as const
-    }))
   ];
 
   useEffect(() => {
-    validateFormula(value);
+    validateFormula(value || '');
   }, [value]);
 
   // Keep cursor position in sync with input
@@ -190,21 +172,25 @@ export function FormulaEditor({ value, onChange, variables = {}, label = "Formul
 
       // Check for valid characters
       const validChars = /^[a-zA-Z0-9\s+\-*/()=,._]+$/;
-      if (!validChars.test(formula.replace(/\s/g, ''))) {
+      if (formula && !validChars.test(formula.replace(/\s/g, ''))) {
         throw new Error('Invalid characters in formula');
       }
 
-      // Check for unknown variables/functions
-      const knownIdentifiers = autocompleteData.map(item => item.value.toLowerCase());
+      // Check for unknown functions
+      const knownFunctions = BUILTIN_FUNCTIONS.map(item => item.name.toLowerCase());
       const words = formula.match(/[a-zA-Z_][a-zA-Z0-9_]*/g) || [];
-      const unknownWords = words.filter(word => {
+      const unknownFunctions = words.filter(word => {
         const wordLower = word.toLowerCase();
-        return !knownIdentifiers.includes(wordLower) && 
-               !['min', 'max', 'floor', 'ceil', 'round', 'abs', 'sqrt', 'pow', 'clamp', 'lerp'].includes(wordLower);
+        // A word is an unknown function if it's followed by a parenthesis 
+        // and is not in our list of known functions.
+        const nextCharIndex = formula.indexOf(word) + word.length;
+        const isFunctionCall = formula.length > nextCharIndex && formula[nextCharIndex] === '(';
+        
+        return isFunctionCall && !knownFunctions.includes(wordLower);
       });
 
-      if (unknownWords.length > 0) {
-        throw new Error(`Unknown identifier(s): ${unknownWords.join(', ')}`);
+      if (unknownFunctions.length > 0) {
+        throw new Error(`Unknown function(s): ${unknownFunctions.join(', ')}`);
       }
 
       setIsValid(true);
@@ -278,8 +264,9 @@ export function FormulaEditor({ value, onChange, variables = {}, label = "Formul
   };
 
   const handleItemSelect = (item: AutocompleteItem) => {
-    const beforeCursor = value.slice(0, cursorPosition);
-    const afterCursor = value.slice(cursorPosition);
+    const currentValue = value || '';
+    const beforeCursor = currentValue.slice(0, cursorPosition);
+    const afterCursor = currentValue.slice(cursorPosition);
     
     // Find if we're replacing a partial word
     const wordMatch = beforeCursor.match(/[a-zA-Z_][a-zA-Z0-9_]*$/);
@@ -289,11 +276,11 @@ export function FormulaEditor({ value, onChange, variables = {}, label = "Formul
     if (wordMatch) {
       // Replace the partial word
       const startPos = cursorPosition - wordMatch[0].length;
-      newValue = value.slice(0, startPos) + item.value + value.slice(cursorPosition);
+      newValue = currentValue.slice(0, startPos) + item.value + currentValue.slice(cursorPosition);
       newCursorPosition = startPos + item.value.length;
     } else {
       // Insert at cursor position
-      newValue = value.slice(0, cursorPosition) + item.value + value.slice(cursorPosition);
+      newValue = currentValue.slice(0, cursorPosition) + item.value + currentValue.slice(cursorPosition);
       newCursorPosition = cursorPosition + item.value.length;
     }
     
@@ -349,7 +336,8 @@ export function FormulaEditor({ value, onChange, variables = {}, label = "Formul
 
     // Auto-insert closing parenthesis
     if (event.key === '(') {
-      const newValue = value.slice(0, cursorPosition) + '()' + value.slice(cursorPosition);
+      const currentValue = value || '';
+      const newValue = currentValue.slice(0, cursorPosition) + '()' + currentValue.slice(cursorPosition);
       onChange(newValue);
       const newCursorPosition = cursorPosition + 1;
       
@@ -440,7 +428,7 @@ export function FormulaEditor({ value, onChange, variables = {}, label = "Formul
         <Menu.Target>
           <TextInput
             ref={inputRef}
-            value={value}
+            value={value || ''}
             onChange={handleInputChange}
             onKeyDown={handleKeyDown}
             onClick={handleInputClick}

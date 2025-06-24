@@ -1,14 +1,13 @@
 import '@mantine/core/styles.css';
 
 import React from 'react';
-import { ColorSchemeScript, Group, mantineHtmlProps, MantineProvider, Box } from '@mantine/core';
+import { ColorSchemeScript, mantineHtmlProps, MantineProvider } from '@mantine/core';
 import { theme } from '../theme';
-import { NavbarNested } from '../components/Navbar/Navbar';
-import { Header } from '../components/Header/Header';
+import { AppShellLayout } from '../components/AppShellLayout/AppShellLayout';
 
 export const metadata = {
-  title: 'Mantine Next.js template',
-  description: 'I am using Mantine with Next.js!',
+  title: 'MMORPG Editor',
+  description: 'A comprehensive editor for MMORPG game data and content management',
 };
 
 export default function RootLayout({ children }: { children: any }) {
@@ -24,13 +23,9 @@ export default function RootLayout({ children }: { children: any }) {
       </head>
       <body>
         <MantineProvider theme={theme} defaultColorScheme="dark">
-          <Box>
-            <Header />
-            <Group align="flex-start">
-              <NavbarNested />
-              {children}
-            </Group>
-          </Box>
+          <AppShellLayout>
+            {children}
+          </AppShellLayout>
         </MantineProvider>
       </body>
     </html>

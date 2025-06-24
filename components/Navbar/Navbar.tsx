@@ -1,77 +1,58 @@
 "use client"
 
-import { ScrollArea, rem } from '@mantine/core';
+import { ScrollArea } from '@mantine/core';
 import {
-  IconNotes,
-  IconCalendarStats,
   IconGauge,
+  IconFingerprint,
+  IconActivity,
+  IconChartPie3,
   IconPresentationAnalytics,
-  IconFileAnalytics,
+  IconFileText,
   IconAdjustments,
   IconLock,
 } from '@tabler/icons-react';
 import { LinksGroup } from './LinksGroup';
+import classes from './Navbar.module.css';
 
 const mockdata = [
-  { label: 'Attributes', icon: IconGauge, link: '/attributes' },
+  { label: 'Dashboard', icon: IconGauge, link: '/' },
   {
-    label: 'Market news',
-    icon: IconNotes,
-    initiallyOpened: true,
+    label: 'Game Data',
+    icon: IconFingerprint,
     links: [
-      { label: 'Overview', link: '/' },
-      { label: 'Forecasts', link: '/' },
-      { label: 'Outlook', link: '/' },
-      { label: 'Real time', link: '/' },
+      { label: 'Actors', link: '/actors' },
+      { label: 'Attributes', link: '/attributes' },
+      { label: 'Effects', link: '/effects' },
+      { label: 'Items', link: '/items' },
+      { label: 'Skills', link: '/skills' },
+      { label: 'Classes', link: '/classes' },
     ],
   },
   {
-    label: 'Releases',
-    icon: IconCalendarStats,
+    label: 'Content',
+    icon: IconActivity,
     links: [
-      { label: 'Upcoming releases', link: '/' },
-      { label: 'Previous releases', link: '/' },
-      { label: 'Releases schedule', link: '/' },
+      { label: 'Quests', link: '/quests' },
+      { label: 'NPCs', link: '/npcs' },
+      { label: 'Locations', link: '/locations' },
+      { label: 'Dialogue', link: '/dialogue' },
     ],
   },
-  { label: 'Analytics', icon: IconPresentationAnalytics, link: '/' },
-  { label: 'Contracts', icon: IconFileAnalytics, link: '/' },
-  { label: 'Settings', icon: IconAdjustments, link: '/' },
-  {
-    label: 'Security',
-    icon: IconLock,
-    links: [
-      { label: 'Enable 2FA', link: '/' },
-      { label: 'Change password', link: '/' },
-      { label: 'Recovery codes', link: '/' },
-    ],
-  },
+  { label: 'Analytics', icon: IconChartPie3, link: '/analytics' },
+  { label: 'Reports', icon: IconPresentationAnalytics, link: '/reports' },
+  { label: 'Documentation', icon: IconFileText, link: '/docs' },
+  { label: 'Settings', icon: IconAdjustments, link: '/settings' },
+  { label: 'Security', icon: IconLock, link: '/security' },
 ];
 
-export function NavbarNested() {
+export function Navbar() {
   const links = mockdata.map((item) => <LinksGroup {...item} key={item.label} />);
 
   return (
-    <nav style={{
-      height: 'calc(100vh - 60px)',
-      width: rem(300),
-      padding: 'var(--mantine-spacing-md)',
-      display: 'flex',
-      flexDirection: 'column',
-      borderRight: `${rem(1)} solid var(--mantine-color-gray-3)`,
-    }}>
-      <ScrollArea style={{
-        flex: 1,
-        marginLeft: 'calc(var(--mantine-spacing-md) * -1)',
-        marginRight: 'calc(var(--mantine-spacing-md) * -1)',
-      }}>
-        <div style={{
-          paddingTop: 'var(--mantine-spacing-xl)',
-          paddingBottom: 'var(--mantine-spacing-xl)',
-        }}>
-          {links}
-        </div>
-      </ScrollArea>
-    </nav>
+    <ScrollArea className={classes.navbar}>
+      <div style={{ padding: 'var(--mantine-spacing-md)' }}>
+        {links}
+      </div>
+    </ScrollArea>
   );
 } 
