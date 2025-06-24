@@ -26,15 +26,222 @@ import {
   useMantineTheme,
   useMantineColorScheme,
   MantineTheme,
+  Tabs,
 } from '@mantine/core';
 import { IconEdit, IconTrash, IconPlus, IconX, IconDeviceFloppy, IconArrowBackUp, IconChevronDown, IconChevronRight, IconGripVertical } from '@tabler/icons-react';
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect, useCallback } from 'react';
 import { z, ZodTypeAny, ZodObject, ZodString, ZodNumber, ZodEnum, ZodBoolean, ZodArray, ZodAny, ZodLazy, ZodOptional, ZodNullable, ZodUnion, ZodDiscriminatedUnion } from 'zod';
 import { FormulaEditor } from '../FormulaEditor/FormulaEditor';
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, DragEndEvent } from '@dnd-kit/core';
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { useGameDataStore } from '../../lib/store';
+import Editor from '@monaco-editor/react';
+import * as yaml from 'js-yaml';
+
+// Helper functions to convert between type fields and YAML tags
+const convertToTaggedYaml = (obj: any): string => {
+  const processObject = (obj: any): any => {
+    if (Array.isArray(obj)) {
+      return obj.map(processObject);
+    }
+    
+    if (obj && typeof obj === 'object') {
+      // Check if this object has a 'type' field that should become a YAML tag
+      if (obj.type && typeof obj.type === 'string') {
+        const result: any = {};
+        
+        // Copy all properties except 'type'
+        Object.keys(obj).forEach(key => {
+          if (key !== 'type') {
+            result[key] = processObject(obj[key]);
+          }
+        });
+        
+        return { tag: obj.type, data: result };
+      }
+      
+      // Recursively process nested objects
+      const result: any = {};
+      Object.keys(obj).forEach(key => {
+        result[key] = processObject(obj[key]);
+      });
+      
+      return result;
+    }
+    
+    return obj;
+  };
+
+  const processed = processObject(obj);
+  
+  // Custom YAML stringification
+  const stringifyYaml = (obj: any, indent = 0): string => {
+    const spaces = '  '.repeat(indent);
+    
+    if (Array.isArray(obj)) {
+      if (obj.length === 0) return '[]';
+      return obj.map(item => {
+        const itemStr = stringifyYaml(item, 0);
+        // If the item is a tagged object, don't add extra indentation
+        if (itemStr.startsWith('!')) {
+          return `${spaces}- ${itemStr}`;
+        }
+        // For multi-line items, indent properly
+        const lines = itemStr.split('\n');
+        if (lines.length > 1) {
+          return `${spaces}- ${lines[0]}\n${lines.slice(1).map(line => `${spaces}  ${line}`).join('\n')}`;
+        }
+        return `${spaces}- ${itemStr}`;
+      }).join('\n');
+    }
+    
+    if (obj && typeof obj === 'object') {
+      // Handle tagged objects
+      if (obj.tag && obj.data !== undefined) {
+        const tagName = `!${obj.tag}`;
+        if (typeof obj.data === 'object' && obj.data !== null && !Array.isArray(obj.data)) {
+          const keys = Object.keys(obj.data);
+          if (keys.length === 0) {
+            return tagName;
+          }
+          const dataStr = stringifyYaml(obj.data, 0);
+          const lines = dataStr.split('\n');
+          return `${tagName}\n${lines.map(line => `  ${line}`).join('\n')}`;
+        } else {
+          return `${tagName}: ${stringifyYaml(obj.data, 0)}`;
+        }
+      }
+      
+      const keys = Object.keys(obj);
+      if (keys.length === 0) return '{}';
+      
+      return keys.map(key => {
+        const value = obj[key];
+        
+        if (typeof value === 'object' && value !== null && !Array.isArray(value) && Object.keys(value).length > 0) {
+          const valueStr = stringifyYaml(value, 0);
+          const lines = valueStr.split('\n');
+          return `${spaces}${key}:\n${lines.map(line => `${spaces}  ${line}`).join('\n')}`;
+        } else if (Array.isArray(value) && value.length > 0) {
+          const valueStr = stringifyYaml(value, indent + 1);
+          return `${spaces}${key}:\n${valueStr}`;
+        } else {
+          return `${spaces}${key}: ${stringifyYaml(value, 0)}`;
+        }
+      }).join('\n');
+    }
+    
+    if (typeof obj === 'string') {
+      return obj.includes('\n') || obj.includes(':') || obj.includes('-') || obj.includes('#') ? `"${obj}"` : obj;
+    }
+    
+    return String(obj);
+  };
+
+  return stringifyYaml(processed);
+};
+
+const convertFromTaggedYaml = (yamlStr: string): any => {
+  // Simple parser for our tagged YAML format
+  const lines = yamlStr.split('\n');
+  const result: any = {};
+  const stack: any[] = [result];
+  const indentStack: number[] = [0];
+  
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    if (!line.trim()) continue;
+    
+    const indent = line.length - line.trimStart().length;
+    const trimmed = line.trim();
+    
+    // Adjust stack based on indentation
+    while (indentStack.length > 1 && indent <= indentStack[indentStack.length - 1]) {
+      stack.pop();
+      indentStack.pop();
+    }
+    
+    const current = stack[stack.length - 1];
+    
+    if (trimmed.startsWith('!')) {
+      // This is a tagged object
+      const tagMatch = trimmed.match(/^!(\w+)(.*)$/);
+      if (tagMatch) {
+        const tagName = tagMatch[1];
+        const rest = tagMatch[2].trim();
+        
+        const taggedObj: any = { type: tagName };
+        
+        if (rest.startsWith(':')) {
+          // Single line value
+          const value = rest.substring(1).trim();
+          // This would need more complex parsing for different value types
+        } else {
+          // Multi-line object - expect properties on following lines
+          if (Array.isArray(current)) {
+            current.push(taggedObj);
+          } else {
+            // Find the property name from context
+            const prevLine = i > 0 ? lines[i - 1] : '';
+            const propMatch = prevLine.match(/^\s*(\w+):\s*$/);
+            if (propMatch) {
+              current[propMatch[1]] = taggedObj;
+            }
+          }
+          
+          stack.push(taggedObj);
+          indentStack.push(indent);
+        }
+      }
+    } else if (trimmed.includes(':')) {
+      // Regular property
+      const [key, ...valueParts] = trimmed.split(':');
+      const value = valueParts.join(':').trim();
+      
+      if (value === '') {
+        // Multi-line value expected
+        current[key.trim()] = {};
+        stack.push(current[key.trim()]);
+        indentStack.push(indent);
+      } else {
+        // Single line value
+        let parsedValue: any = value;
+        if (value === 'true') parsedValue = true;
+        else if (value === 'false') parsedValue = false;
+        else if (!isNaN(Number(value))) parsedValue = Number(value);
+        else if (value.startsWith('"') && value.endsWith('"')) {
+          parsedValue = value.slice(1, -1);
+        }
+        
+        current[key.trim()] = parsedValue;
+      }
+    } else if (trimmed.startsWith('-')) {
+      // Array item
+      const value = trimmed.substring(1).trim();
+      if (!Array.isArray(current)) {
+        // Convert to array
+        const parent = stack[stack.length - 2];
+        const keys = Object.keys(parent);
+        const lastKey = keys[keys.length - 1];
+        parent[lastKey] = [];
+        stack[stack.length - 1] = parent[lastKey];
+      }
+      
+      let parsedValue: any = value;
+      if (value === 'true') parsedValue = true;
+      else if (value === 'false') parsedValue = false;
+      else if (!isNaN(Number(value))) parsedValue = Number(value);
+      else if (value.startsWith('"') && value.endsWith('"')) {
+        parsedValue = value.slice(1, -1);
+      }
+      
+      current.push(parsedValue);
+    }
+  }
+  
+  return result;
+};
 
 // Helper to get keys from a Zod schema
 const getShape = (schema: ZodTypeAny): Record<string, ZodTypeAny> | null => {
@@ -274,7 +481,7 @@ function buildEditorRows({
                         <Group justify="flex-end" gap="xs">
                             <Text size="xs" c="dimmed">{arrayValue.length} Array elements</Text>
                             <ActionIcon size="sm" variant="subtle" onClick={handleAddItem}><IconPlus size={16} /></ActionIcon>
-                            <ActionIcon size="sm" variant="subtle" onClick={handleClearArray}><IconTrash size={16} /></ActionIcon>
+                            <ActionIcon size="sm" variant="subtle" color="red" onClick={handleClearArray}><IconTrash size={16} /></ActionIcon>
                             <ActionIcon size="sm" variant="subtle" onClick={() => toggleExpand(path)}>
                                 {isExpanded ? <IconChevronDown size={16} /> : <IconChevronRight size={16} />}
                             </ActionIcon>
@@ -362,7 +569,7 @@ function buildEditorRows({
                                 value={currentType}
                                 onChange={handleTypeChange}
                                 size="xs"
-                                w={120}
+                                flex={1}
                                 placeholder="Select type"
                                 allowDeselect={false}
                             />
@@ -380,7 +587,7 @@ function buildEditorRows({
                             <Table.Td>
                                 <Group justify="flex-end" gap="xs">
                                     {typeSelector}
-                                    <ActionIcon size="sm" variant="subtle" onClick={handleItemDelete}>
+                                    <ActionIcon size="sm" variant="subtle" color="red" onClick={handleItemDelete}>
                                         <IconTrash size={16} />
                                     </ActionIcon>
                                     <ActionIcon size="sm" variant="subtle" onClick={() => toggleExpand(itemPath)}>
@@ -577,6 +784,10 @@ export function GenericTable<T extends ZodTypeAny>({
   const [editingItem, setEditingItem] = useState<z.infer<T> | null>(null);
   const [isCreating, setIsCreating] = useState(false);
   const [tableData, setTableData] = useState(data);
+  const [activeTab, setActiveTab] = useState<string>('visual');
+  const [yamlContent, setYamlContent] = useState<string>('');
+  const [editHistory, setEditHistory] = useState<z.infer<T>[]>([]);
+  const [historyIndex, setHistoryIndex] = useState(-1);
 
   const columns = useMemo(() => {
     const shape = getShape(zodSchema);
@@ -620,8 +831,13 @@ export function GenericTable<T extends ZodTypeAny>({
 
   const handleRowClick = (item: z.infer<T>) => {
     setSelectedItem(item);
-    setEditingItem(JSON.parse(JSON.stringify(item))); // Deep copy
+    const itemCopy = JSON.parse(JSON.stringify(item)); // Deep copy
+    setEditingItem(itemCopy);
+    setYamlContent(convertToTaggedYaml(itemCopy));
     setIsCreating(false);
+    // Initialize history
+    setEditHistory([itemCopy]);
+    setHistoryIndex(0);
   };
 
   const handleCreate = () => {
@@ -630,7 +846,11 @@ export function GenericTable<T extends ZodTypeAny>({
     const newItem = { id: newId }; // Add other default values based on schema if needed.
     setSelectedItem(newItem as any);
     setEditingItem(newItem as any);
+    setYamlContent(convertToTaggedYaml(newItem));
     setIsCreating(true);
+    // Initialize history
+    setEditHistory([newItem as any]);
+    setHistoryIndex(0);
   };
 
   const handleSave = () => {
@@ -655,6 +875,79 @@ export function GenericTable<T extends ZodTypeAny>({
     setSelectedItem(null);
     setEditingItem(null);
     setIsCreating(false);
+    setActiveTab('visual');
+    setYamlContent('');
+    setEditHistory([]);
+    setHistoryIndex(-1);
+  };
+
+  const handleYamlChange = (value: string | undefined) => {
+    if (value !== undefined) {
+      setYamlContent(value);
+      try {
+        const convertedData = convertFromTaggedYaml(value) as z.infer<T>;
+        setEditingItem(convertedData);
+      } catch (error) {
+        // Invalid YAML, don't update editingItem
+        console.warn('Invalid YAML:', error);
+      }
+    }
+  };
+
+  const handleTabChange = (value: string | null) => {
+    if (value) {
+      setActiveTab(value);
+      if (value === 'yaml' && editingItem) {
+        // Sync visual editor changes to YAML when switching to YAML tab
+        setYamlContent(convertToTaggedYaml(editingItem));
+      }
+    }
+  };
+
+  const addToHistory = useCallback((item: z.infer<T>) => {
+    setEditHistory(prev => {
+      const newHistory = prev.slice(0, historyIndex + 1);
+      newHistory.push(JSON.parse(JSON.stringify(item)));
+      return newHistory.slice(-50); // Keep only last 50 states
+    });
+    setHistoryIndex(prev => Math.min(prev + 1, 49));
+  }, [historyIndex]);
+
+  const handleUndo = useCallback(() => {
+    if (historyIndex > 0) {
+      const previousState = editHistory[historyIndex - 1];
+      if (previousState) {
+        setEditingItem(JSON.parse(JSON.stringify(previousState)));
+        setHistoryIndex(prev => prev - 1);
+        // Update YAML if on YAML tab
+        if (activeTab === 'yaml') {
+          setYamlContent(convertToTaggedYaml(previousState));
+        }
+      }
+    }
+  }, [editHistory, historyIndex, activeTab]);
+
+  // Keyboard event handling for Ctrl+Z
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (selectedItem && event.ctrlKey && event.key === 'z') {
+        event.preventDefault();
+        handleUndo();
+      }
+    };
+
+    if (selectedItem) {
+      document.addEventListener('keydown', handleKeyDown);
+      return () => document.removeEventListener('keydown', handleKeyDown);
+    }
+  }, [selectedItem, handleUndo]);
+
+  const handleVisualChange = (newData: z.infer<T>) => {
+    if (editingItem && JSON.stringify(editingItem) !== JSON.stringify(newData)) {
+      addToHistory(editingItem);
+    }
+    setEditingItem(newData);
+    // Don't auto-sync to YAML while user is editing visually
   };
 
   const handleDeleteClick = (item: z.infer<T>) => {
@@ -763,18 +1056,55 @@ export function GenericTable<T extends ZodTypeAny>({
                  <Paper withBorder p="md" radius="md" style={{ minWidth: 600 }}>
                   <Group justify="space-between" align="center" mb="md">
                       <Title order={4}>{isCreating ? 'Create Item' : `Edit ${(editingItem as any).name || 'Item'}`}</Title>
-                      <ActionIcon onClick={handleCloseEditor} variant="subtle" color="red">
-                        <IconX size={20} />
-                      </ActionIcon>
+                      <Group gap="xs">
+                        <ActionIcon 
+                          onClick={handleUndo} 
+                          variant="subtle" 
+                          disabled={historyIndex <= 0}
+                          title="Undo (Ctrl+Z)"
+                        >
+                          <IconArrowBackUp size={16} />
+                        </ActionIcon>
+                        <ActionIcon onClick={handleCloseEditor} variant="subtle" color="red">
+                          <IconX size={20} />
+                        </ActionIcon>
+                      </Group>
                   </Group>
                   <Divider mb="md" />
-                  <ScrollArea style={{ flex: 1 }}>
-                    <ObjectEditor
-                      schema={zodSchema}
-                      data={editingItem}
-                      onChange={setEditingItem}
-                    />
-                  </ScrollArea>
+                  <Tabs value={activeTab} onChange={handleTabChange}>
+                    <Tabs.List>
+                      <Tabs.Tab value="visual">Visual Editor</Tabs.Tab>
+                      <Tabs.Tab value="yaml">YAML Editor</Tabs.Tab>
+                    </Tabs.List>
+
+                    <Tabs.Panel value="visual" pt="md">
+                      <ScrollArea style={{ height: 500 }}>
+                        <ObjectEditor
+                          schema={zodSchema}
+                          data={editingItem}
+                          onChange={handleVisualChange}
+                        />
+                      </ScrollArea>
+                    </Tabs.Panel>
+
+                    <Tabs.Panel value="yaml" pt="md">
+                      <Editor
+                        height="500px"
+                        language="yaml"
+                        theme="vs-dark"
+                        value={yamlContent}
+                        onChange={handleYamlChange}
+                        options={{
+                          minimap: { enabled: false },
+                          scrollBeyondLastLine: false,
+                          fontSize: 14,
+                          lineNumbers: 'on',
+                          wordWrap: 'on',
+                          automaticLayout: true,
+                        }}
+                      />
+                    </Tabs.Panel>
+                  </Tabs>
                   <Group justify="flex-end" mt="md">
                     <Button onClick={handleCancel} variant="default">Cancel</Button>
                     <Button onClick={handleSave} leftSection={<IconDeviceFloppy size={16}/>}>{isCreating ? 'Create' : 'Save'}</Button>
