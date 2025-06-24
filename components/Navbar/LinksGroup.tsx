@@ -12,6 +12,7 @@ import {
   rem,
 } from '@mantine/core';
 import { IconCalendarStats, IconChevronRight } from '@tabler/icons-react';
+import classes from './Navbar.module.css';
 
 interface LinksGroupProps {
   icon: React.FC<any>;
@@ -41,7 +42,7 @@ export function LinksGroup({ icon: Icon, label, initiallyOpened, links, link }: 
         marginLeft: rem(30),
         borderRadius: 'var(--mantine-radius-sm)',
       }}
-      className="navbar-link"
+      className={classes.navbarLink}
     >
       {link.label}
     </Text>
@@ -63,7 +64,7 @@ export function LinksGroup({ icon: Icon, label, initiallyOpened, links, link }: 
           marginLeft: 'var(--mantine-spacing-md)',
           borderRadius: 'var(--mantine-radius-sm)',
         }}
-        className="navbar-link"
+        className={classes.navbarLink}
       >
         <Group justify="space-between" gap={0}>
           <Box style={{ display: 'flex', alignItems: 'center' }}>

@@ -2,16 +2,16 @@
   height: 100%;
 }
 
-:global(.navbar-link) {
+.navbarLink {
   transition: all 0.15s ease;
 }
 
-:global(.navbar-link:hover) {
+.navbarLink:hover {
   background-color: light-dark(var(--mantine-color-gray-1), var(--mantine-color-dark-6));
   color: light-dark(var(--mantine-color-black), var(--mantine-color-white));
   text-decoration: none;
 }
 
-:global(.navbar-link:hover .mantine-ThemeIcon-root) {
+.navbarLink:hover :global(.mantine-ThemeIcon-root) {
   background-color: light-dark(var(--mantine-color-blue-0), var(--mantine-color-blue-9));
 } 
