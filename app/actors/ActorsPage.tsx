@@ -20,7 +20,7 @@ const sampleActors: Actor[] = [
             OnHit: [
               {
                 type: 'Damage',
-                Potency: 80,
+                Potency: '$Strength * 2 + 20',
               },
               {
                 type: 'Effect',
@@ -41,7 +41,7 @@ const sampleActors: Actor[] = [
             OnHit: [
               {
                 type: 'Damage',
-                Potency: 120,
+                Potency: 'MAX(100, $Strength * 3)',
               },
             ],
           },
@@ -65,7 +65,7 @@ const sampleActors: Actor[] = [
             OnHit: [
               {
                 type: 'Damage',
-                Potency: 150,
+                Potency: '$Intelligence * 4 + 50',
               },
               {
                 type: 'Effect',
@@ -95,7 +95,7 @@ const sampleActors: Actor[] = [
             OnHit: [
               {
                 type: 'Damage',
-                Potency: 100,
+                Potency: 'CLAMP($Strength + $Dexterity, 50, 200)',
               },
             ],
           },

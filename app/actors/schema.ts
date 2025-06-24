@@ -3,7 +3,10 @@ import { z } from 'zod';
 // OnHit callback types (tagged unions)
 const DamageCallbackSchema = z.object({
   type: z.literal('Damage').describe('{"description": "Callback type", "specialType": "hidden"}'),
-  Potency: z.number().describe('{"description": "Damage potency value", "specialType": "number"}'),
+  Potency: z.string().describe(JSON.stringify({ 
+    specialType: 'formula', 
+    description: 'Damage potency formula. Can reference attributes with $ prefix (e.g., $Strength * 2).' 
+  })),
 });
 
 const EffectCallbackSchema = z.object({

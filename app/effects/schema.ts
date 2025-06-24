@@ -4,12 +4,18 @@ import { z } from 'zod';
 const DamageTickCallbackSchema = z.object({
   type: z.literal('Damage').describe('{"description": "Callback type", "specialType": "hidden"}'),
   Type: z.enum(['Physical', 'Magical', 'Fire', 'Ice', 'Lightning', 'Poison']).describe('{"description": "Damage type", "specialType": "enum"}'),
-  Potency: z.number().optional().describe('{"description": "Damage potency value", "specialType": "number"}'),
+  Potency: z.string().optional().describe(JSON.stringify({ 
+    specialType: 'formula', 
+    description: 'Damage potency formula. Can reference attributes with $ prefix (e.g., $Strength * 2).' 
+  })),
 });
 
 const HealTickCallbackSchema = z.object({
   type: z.literal('Heal').describe('{"description": "Callback type", "specialType": "hidden"}'),
-  Potency: z.number().describe('{"description": "Heal potency value", "specialType": "number"}'),
+  Potency: z.string().describe(JSON.stringify({ 
+    specialType: 'formula', 
+    description: 'Heal potency formula. Can reference attributes with $ prefix (e.g., $Wisdom * 3).' 
+  })),
 });
 
 const StatModifierTickCallbackSchema = z.object({

@@ -2,18 +2,7 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { Effect } from '../app/effects/schema';
 import { Actor } from '../app/actors/schema';
-
-// Import the attribute schema (we'll need to export it from the attributes page)
-// For now, create a simple attribute type
-export interface Attribute {
-  id: number;
-  name: string;
-  type: string;
-  baseValue: number;
-  status: string;
-  maxValue: number;
-  description: string;
-}
+import { Attributes } from '../app/attributes/schema';
 
 interface GameDataStore {
   // Effects
@@ -31,11 +20,11 @@ interface GameDataStore {
   getActorByName: (name: string) => Actor | undefined;
   
   // Attributes
-  attributes: Attribute[];
-  addAttribute: (attribute: Attribute) => void;
-  updateAttribute: (id: number, attribute: Attribute) => void;
-  deleteAttribute: (id: number) => void;
-  getAttributeByName: (name: string) => Attribute | undefined;
+  attributes: Attributes[];
+  addAttribute: (attribute: Attributes) => void;
+  updateAttribute: (name: string, attribute: Attributes) => void;
+  deleteAttribute: (name: string) => void;
+  getAttributeByName: (name: string) => Attributes | undefined;
   
   // Utility functions
   getAllEffectNames: () => string[];
@@ -59,7 +48,7 @@ export const useGameDataStore = create<GameDataStore>()(
             {
               type: 'Damage',
               Type: 'Fire',
-              Potency: 25,
+              Potency: 'Level * 2 + 15',
             },
           ],
         },
@@ -72,7 +61,7 @@ export const useGameDataStore = create<GameDataStore>()(
           OnTick: [
             {
               type: 'Heal',
-              Potency: 50,
+              Potency: 'Wisdom * 3 + 20',
             },
           ],
         },
@@ -134,28 +123,33 @@ export const useGameDataStore = create<GameDataStore>()(
       
       // Attributes state and actions
       attributes: [
-        { id: 1, name: 'Strength', type: 'Physical', baseValue: 10, status: 'Active', maxValue: 100, description: 'Increases physical damage and carrying capacity' },
-        { id: 2, name: 'Dexterity', type: 'Physical', baseValue: 8, status: 'Active', maxValue: 100, description: 'Improves accuracy and evasion' },
-        { id: 3, name: 'Intelligence', type: 'Mental', baseValue: 12, status: 'Active', maxValue: 100, description: 'Enhances magical power and spell efficiency' },
-        { id: 4, name: 'Wisdom', type: 'Mental', baseValue: 9, status: 'Active', maxValue: 100, description: 'Increases mana regeneration and resistance' },
+        { Name: 'Health', Min: '0', Max: 'MaxHealth' },
+        { Name: 'MaxHealth', Min: '10', Max: 'MAX(100, Level * 10)' },
+        { Name: 'Mana', Min: '0', Max: 'MaxMana' },
+        { Name: 'MaxMana', Min: '5', Max: 'MAX(50, Intelligence * 5)' },
+        { Name: 'Strength', Min: '1', Max: 'CLAMP(BaseStrength + StrengthModifiers, 1, 100)' },
+        { Name: 'Intelligence', Min: '1', Max: 'CLAMP(BaseIntelligence + IntelligenceModifiers, 1, 100)' },
+        { Name: 'Level', Min: '1', Max: '100' },
+        { Name: 'Dexterity', Min: '1', Max: 'CLAMP(BaseDexterity + DexterityModifiers, 1, 100)' },
+        { Name: 'Wisdom', Min: '1', Max: 'CLAMP(BaseWisdom + WisdomModifiers, 1, 100)' },
       ],
       
       addAttribute: (attribute) => set((state) => ({
         attributes: [...state.attributes, attribute]
       })),
       
-      updateAttribute: (id, attribute) => set((state) => ({
+      updateAttribute: (name, attribute) => set((state) => ({
         attributes: state.attributes.map((a) => 
-          a.id === id ? attribute : a
+          a.Name === name ? attribute : a
         )
       })),
       
-      deleteAttribute: (id) => set((state) => ({
-        attributes: state.attributes.filter((a) => a.id !== id)
+      deleteAttribute: (name) => set((state) => ({
+        attributes: state.attributes.filter((a) => a.Name !== name)
       })),
       
       getAttributeByName: (name) => {
-        return get().attributes.find((a) => a.name === name);
+        return get().attributes.find((a) => a.Name === name);
       },
       
       // Utility functions
@@ -168,7 +162,7 @@ export const useGameDataStore = create<GameDataStore>()(
       },
       
       getAllAttributeNames: () => {
-        return get().attributes.map((a) => a.name);
+        return get().attributes.map((a) => a.Name);
       },
     }),
     {

@@ -27,6 +27,7 @@ import {
   useMantineColorScheme,
   MantineTheme,
   Tabs,
+  Tooltip,
 } from '@mantine/core';
 import { IconEdit, IconTrash, IconPlus, IconX, IconDeviceFloppy, IconArrowBackUp, IconChevronDown, IconChevronRight, IconGripVertical } from '@tabler/icons-react';
 import { useState, useMemo, useEffect, useCallback } from 'react';
@@ -305,6 +306,137 @@ const getUnionSchema = (unionSchema: ZodUnion<any> | ZodDiscriminatedUnion<any, 
 
 
 
+interface SortableArrayItemProps {
+    id: string;
+    index: number;
+    item: any;
+    itemPath: string;
+    isExpanded: boolean;
+    depth: number;
+    tdStyle: any;
+    theme: MantineTheme;
+    typeSelector: React.ReactNode;
+    elementType: ZodTypeAny;
+    expanded: Record<string, boolean>;
+    toggleExpand: (key: string) => void;
+    colorScheme: 'light' | 'dark';
+    effectNames: string[];
+    rootData: any;
+    availableAttributes: string[];
+    onItemChange: (newItem: any) => void;
+    onItemDelete: () => void;
+}
+
+function SortableArrayItem({
+    id,
+    index,
+    item,
+    itemPath,
+    isExpanded,
+    depth,
+    tdStyle,
+    theme,
+    typeSelector,
+    elementType,
+    expanded,
+    toggleExpand,
+    colorScheme,
+    effectNames,
+    rootData,
+    availableAttributes,
+    onItemChange,
+    onItemDelete,
+}: SortableArrayItemProps) {
+    const {
+        attributes,
+        listeners,
+        setNodeRef,
+        transform,
+        transition,
+        isDragging,
+    } = useSortable({ id });
+
+    const style = {
+        transform: CSS.Transform.toString(transform),
+        transition,
+        opacity: isDragging ? 0.5 : 1,
+    };
+
+    const rows = [];
+
+    // Main item row
+    rows.push(
+        <Table.Tr key={itemPath} ref={setNodeRef} style={style} {...attributes}>
+            <Table.Td style={{ ...tdStyle, paddingLeft: `calc(var(--mantine-spacing-md) * ${depth + 2})` }}>
+                <Group gap="xs">
+                    <div {...listeners} style={{ cursor: 'grab', display: 'flex', alignItems: 'center' }}>
+                        <IconGripVertical size={16} style={{ color: theme.colors.gray[5] }} />
+                    </div>
+                    <Text size="sm" fw={500}>Item {index + 1}</Text>
+                </Group>
+            </Table.Td>
+            <Table.Td>
+                <Group justify="flex-end" gap="xs">
+                    {typeSelector}
+                    <ActionIcon size="sm" variant="subtle" color="red" onClick={onItemDelete}>
+                        <IconTrash size={16} />
+                    </ActionIcon>
+                    <ActionIcon size="sm" variant="subtle" onClick={() => toggleExpand(itemPath)}>
+                        {isExpanded ? <IconChevronDown size={16} /> : <IconChevronRight size={16} />}
+                    </ActionIcon>
+                </Group>
+            </Table.Td>
+        </Table.Tr>
+    );
+
+    // Expanded content rows
+    if (isExpanded) {
+        let itemSchema = elementType;
+        
+        // If the element type is a discriminated union, determine the actual schema for this item
+        if (elementType instanceof ZodDiscriminatedUnion) {
+            const actualSchema = getUnionSchema(elementType, item);
+            if (actualSchema) {
+                itemSchema = actualSchema;
+            } else {
+                // Fallback: if we can't determine the schema, use the first option
+                itemSchema = elementType.options[0] || elementType;
+            }
+        }
+        // If the element type is a regular union, determine the actual schema for this item
+        else if (elementType instanceof ZodUnion) {
+            const actualSchema = getUnionSchema(elementType, item);
+            if (actualSchema) {
+                itemSchema = actualSchema;
+            } else {
+                // Fallback: if we can't determine the schema, use the first option
+                itemSchema = elementType.options[0] || elementType;
+            }
+        }
+        
+        // Only render nested rows if we have a valid schema that can be expanded
+        if (getShape(itemSchema)) {
+            const nestedRows = buildEditorRows({ 
+                schema: itemSchema, 
+                data: item, 
+                onChange: onItemChange, 
+                depth: depth + 2, 
+                pathPrefix: itemPath, 
+                expanded, 
+                toggleExpand, 
+                theme, 
+                colorScheme, 
+                effectNames, 
+                rootData, 
+                availableAttributes 
+            });
+            rows.push(...nestedRows);
+        }
+    }
+
+    return <>{rows}</>;
+}
+
 interface BuildEditorRowsParams {
     schema: ZodTypeAny;
     data: any;
@@ -317,6 +449,8 @@ interface BuildEditorRowsParams {
     colorScheme: 'light' | 'dark';
     listeners?: ReturnType<typeof useSortable>['listeners'];
     effectNames?: string[];
+    rootData?: any; // Root data for attribute references
+    availableAttributes?: string[];
 }
 
 function buildEditorRows({
@@ -330,6 +464,8 @@ function buildEditorRows({
     theme,
     colorScheme,
     effectNames = [],
+    rootData,
+    availableAttributes = [],
 }: BuildEditorRowsParams): React.ReactNode[] {
     const rows: React.ReactNode[] = [];
     const levelColors = [
@@ -362,7 +498,8 @@ function buildEditorRows({
             currentSchema = currentSchema.unwrap();
         }
 
-        let label = fieldSchema.description || key;
+        let label = key; // Use property name as label
+        let description = fieldSchema.description || key; // Full description for tooltip
         let specialType: string | undefined;
 
         if (fieldSchema.description) {
@@ -370,9 +507,12 @@ function buildEditorRows({
                 const meta = JSON.parse(fieldSchema.description);
                 if (meta.specialType) {
                     specialType = meta.specialType;
-                    label = meta.description || key;
+                    description = meta.description || key;
                 }
-            } catch (e) { /* Not a JSON description */ }
+            } catch (e) { 
+                // Not a JSON description, use as-is for tooltip
+                description = fieldSchema.description;
+            }
         }
         
         // Skip hidden fields
@@ -403,7 +543,9 @@ function buildEditorRows({
             rows.push(
                 <Table.Tr key={path}>
                     <Table.Td style={tdStyle}>
-                        <Text size="sm" fw={500}>{label}</Text>
+                        <Tooltip label={description} position="left" withArrow>
+                            <Text size="xs" fw={500} style={{ cursor: 'help' }}>{label}</Text>
+                        </Tooltip>
                     </Table.Td>
                     <Table.Td>
                          <Group justify="flex-end" gap="xs">
@@ -416,7 +558,7 @@ function buildEditorRows({
                 </Table.Tr>
             );
             if (isExpanded) {
-                const nestedRows = buildEditorRows({ schema: nestedSchema, data: value || {}, onChange: handleChange, depth: depth + 1, pathPrefix: path, expanded, toggleExpand, theme, colorScheme, effectNames });
+                                            const nestedRows = buildEditorRows({ schema: nestedSchema, data: value || {}, onChange: handleChange, depth: depth + 1, pathPrefix: path, expanded, toggleExpand, theme, colorScheme, effectNames, rootData, availableAttributes });
                 rows.push(...nestedRows);
             }
         } else if (isComplexArray) {
@@ -475,7 +617,9 @@ function buildEditorRows({
             rows.push(
                 <Table.Tr key={path}>
                     <Table.Td style={tdStyle}>
-                       <Text size="sm" fw={500}>{label}</Text>
+                       <Tooltip label={description} position="left" withArrow>
+                           <Text size="xs" fw={500} style={{ cursor: 'help' }}>{label}</Text>
+                       </Tooltip>
                     </Table.Td>
                     <Table.Td>
                         <Group justify="flex-end" gap="xs">
@@ -491,150 +635,129 @@ function buildEditorRows({
             );
             
             if (isExpanded) {
-                arrayValue.forEach((item: any, index: number) => {
-                    const itemPath = `${path}[${index}]`;
-                    const isItemExpanded = expanded[itemPath] || false;
-                    
-                    const handleItemChange = (newItem: any) => {
-                        const newArray = [...arrayValue];
-                        newArray[index] = newItem;
-                        handleChange(newArray);
-                    };
-                    
-                    const handleItemDelete = () => {
-                        const newArray = arrayValue.filter((_: any, i: number) => i !== index);
-                        handleChange(newArray);
-                    };
-
-                    // Check if this is a discriminated union and create type selector
-                    let typeSelector = null;
-                    if (elementType instanceof ZodDiscriminatedUnion) {
-                        const discriminator = elementType.discriminator;
-                        const currentType = item[discriminator];
-                        const typeOptions = elementType.options.map((option: any) => {
-                            if (option instanceof ZodObject) {
-                                const shape = option.shape;
-                                const typeValue = shape[discriminator]?._def?.value;
-                                return { value: typeValue, label: typeValue };
-                            }
-                            return null;
-                        }).filter(Boolean);
-
-                        const handleTypeChange = (newType: string | null) => {
-                            if (!newType) return;
+                // Create array of sortable items for drag and drop
+                const sortableItems = arrayValue.map((_: any, index: number) => `${path}.${index}`);
+                
+                rows.push(
+                    <SortableContext key={`${path}-sortable`} items={sortableItems} strategy={verticalListSortingStrategy}>
+                        {arrayValue.map((item: any, index: number) => {
+                            const itemPath = `${path}[${index}]`;
+                            const itemId = `${path}.${index}`;
+                            const isItemExpanded = expanded[itemPath] || false;
                             
-                            // Find the schema for the new type
-                            const newSchema = elementType.options.find((option: any) => {
-                                if (option instanceof ZodObject) {
-                                    const shape = option.shape;
-                                    const discriminatorSchema = shape[discriminator];
-                                    return discriminatorSchema?._def?.value === newType || 
-                                           (discriminatorSchema instanceof z.ZodLiteral && discriminatorSchema.value === newType);
-                                }
-                                return false;
-                            });
+                            const handleItemChange = (newItem: any) => {
+                                const newArray = [...arrayValue];
+                                newArray[index] = newItem;
+                                handleChange(newArray);
+                            };
+                            
+                            const handleItemDelete = () => {
+                                const newArray = arrayValue.filter((_: any, i: number) => i !== index);
+                                handleChange(newArray);
+                            };
 
-                            if (newSchema && newSchema instanceof ZodObject) {
-                                // Create a new item with the new type, preserving existing values where possible
-                                const newItem: any = { [discriminator]: newType };
-                                
-                                // Add default values for required fields, but preserve existing values if they exist
-                                Object.entries(newSchema.shape).forEach(([key, fieldSchema]: [string, any]) => {
-                                    if (key !== discriminator) {
-                                        // Try to preserve existing value first
-                                        if (item[key] !== undefined) {
-                                            newItem[key] = item[key];
-                                        } else {
-                                            // Set default values based on field type
-                                            if (fieldSchema instanceof ZodString) {
-                                                newItem[key] = '';
-                                            } else if (fieldSchema instanceof ZodNumber) {
-                                                newItem[key] = 0;
-                                            } else if (fieldSchema instanceof ZodArray) {
-                                                newItem[key] = [];
-                                            } else if (fieldSchema instanceof ZodBoolean) {
-                                                newItem[key] = false;
-                                            }
-                                        }
+                            // Check if this is a discriminated union and create type selector
+                            let typeSelector = null;
+                            if (elementType instanceof ZodDiscriminatedUnion) {
+                                const discriminator = elementType.discriminator;
+                                const currentType = item[discriminator];
+                                const typeOptions = elementType.options.map((option: any) => {
+                                    if (option instanceof ZodObject) {
+                                        const shape = option.shape;
+                                        const typeValue = shape[discriminator]?._def?.value;
+                                        return { value: typeValue, label: typeValue };
                                     }
-                                });
-                                
-                                handleItemChange(newItem);
-                            }
-                        };
+                                    return null;
+                                }).filter(Boolean);
 
-                        typeSelector = (
-                            <Select
-                                data={typeOptions}
-                                value={currentType}
-                                onChange={handleTypeChange}
-                                size="xs"
-                                flex={1}
-                                placeholder="Select type"
-                                allowDeselect={false}
-                            />
-                        );
-                    }
+                                const handleTypeChange = (newType: string | null) => {
+                                    if (!newType) return;
+                                    
+                                    // Find the schema for the new type
+                                    const newSchema = elementType.options.find((option: any) => {
+                                        if (option instanceof ZodObject) {
+                                            const shape = option.shape;
+                                            const discriminatorSchema = shape[discriminator];
+                                            return discriminatorSchema?._def?.value === newType || 
+                                                   (discriminatorSchema instanceof z.ZodLiteral && discriminatorSchema.value === newType);
+                                        }
+                                        return false;
+                                    });
 
-                    rows.push(
-                        <Table.Tr key={itemPath}>
-                            <Table.Td style={{ ...tdStyle, paddingLeft: `calc(var(--mantine-spacing-md) * ${depth + 2})` }}>
-                                <Group gap="xs">
-                                    <IconGripVertical size={16} style={{ color: theme.colors.gray[5] }} />
-                                    <Text size="sm" fw={500}>Item {index + 1}</Text>
-                                </Group>
-                            </Table.Td>
-                            <Table.Td>
-                                <Group justify="flex-end" gap="xs">
-                                    {typeSelector}
-                                    <ActionIcon size="sm" variant="subtle" color="red" onClick={handleItemDelete}>
-                                        <IconTrash size={16} />
-                                    </ActionIcon>
-                                    <ActionIcon size="sm" variant="subtle" onClick={() => toggleExpand(itemPath)}>
-                                        {isItemExpanded ? <IconChevronDown size={16} /> : <IconChevronRight size={16} />}
-                                    </ActionIcon>
-                                </Group>
-                            </Table.Td>
-                        </Table.Tr>
-                    );
-                    
-                    if (isItemExpanded) {
-                        let itemSchema = elementType;
-                        
-                        // If the element type is a discriminated union, determine the actual schema for this item
-                        if (elementType instanceof ZodDiscriminatedUnion) {
-                            const actualSchema = getUnionSchema(elementType, item);
-                            if (actualSchema) {
-                                itemSchema = actualSchema;
-                            } else {
-                                // Fallback: if we can't determine the schema, use the first option
-                                itemSchema = elementType.options[0] || elementType;
+                                    if (newSchema && newSchema instanceof ZodObject) {
+                                        // Create a new item with the new type, preserving existing values where possible
+                                        const newItem: any = { [discriminator]: newType };
+                                        
+                                        // Add default values for required fields, but preserve existing values if they exist
+                                        Object.entries(newSchema.shape).forEach(([key, fieldSchema]: [string, any]) => {
+                                            if (key !== discriminator) {
+                                                // Try to preserve existing value first
+                                                if (item[key] !== undefined) {
+                                                    newItem[key] = item[key];
+                                                } else {
+                                                    // Set default values based on field type
+                                                    if (fieldSchema instanceof ZodString) {
+                                                        newItem[key] = '';
+                                                    } else if (fieldSchema instanceof ZodNumber) {
+                                                        newItem[key] = 0;
+                                                    } else if (fieldSchema instanceof ZodArray) {
+                                                        newItem[key] = [];
+                                                    } else if (fieldSchema instanceof ZodBoolean) {
+                                                        newItem[key] = false;
+                                                    }
+                                                }
+                                            }
+                                        });
+                                        
+                                        handleItemChange(newItem);
+                                    }
+                                };
+
+                                typeSelector = (
+                                    <Select
+                                        data={typeOptions}
+                                        value={currentType}
+                                        onChange={handleTypeChange}
+                                        size="xs"
+                                        flex={1}
+                                        placeholder="Select type"
+                                        allowDeselect={false}
+                                    />
+                                );
                             }
-                        }
-                        // If the element type is a regular union, determine the actual schema for this item
-                        else if (elementType instanceof ZodUnion) {
-                            const actualSchema = getUnionSchema(elementType, item);
-                            if (actualSchema) {
-                                itemSchema = actualSchema;
-                            } else {
-                                // Fallback: if we can't determine the schema, use the first option
-                                itemSchema = elementType.options[0] || elementType;
-                            }
-                        }
-                        
-                        // Only render nested rows if we have a valid schema that can be expanded
-                        if (getShape(itemSchema)) {
-                            const nestedRows = buildEditorRows({ schema: itemSchema, data: item, onChange: handleItemChange, depth: depth + 2, pathPrefix: itemPath, expanded, toggleExpand, theme, colorScheme, effectNames });
-                            rows.push(...nestedRows);
-                        }
-                    }
-                });
+
+                            return (
+                                <SortableArrayItem
+                                    key={itemId}
+                                    id={itemId}
+                                    index={index}
+                                    item={item}
+                                    itemPath={itemPath}
+                                    isExpanded={isItemExpanded}
+                                    depth={depth}
+                                    tdStyle={tdStyle}
+                                    theme={theme}
+                                    typeSelector={typeSelector}
+                                    elementType={elementType}
+                                    expanded={expanded}
+                                    toggleExpand={toggleExpand}
+                                    colorScheme={colorScheme}
+                                    effectNames={effectNames}
+                                    rootData={rootData}
+                                    availableAttributes={availableAttributes}
+                                    onItemChange={handleItemChange}
+                                    onItemDelete={handleItemDelete}
+                                />
+                            );
+                        })}
+                    </SortableContext>
+                );
             }
         } else {
             let editor;
             if (currentSchema instanceof ZodString) {
                 if (specialType === 'formula') {
-                    editor = <FormulaEditor value={value || ''} onChange={handleChange} />;
+                    editor = <FormulaEditor value={value || ''} onChange={handleChange} availableAttributes={availableAttributes} />;
                 } else if (specialType === 'effectSelect') {
                     editor = <Select 
                         data={effectNames} 
@@ -667,7 +790,9 @@ function buildEditorRows({
             rows.push(
                 <Table.Tr key={path}>
                     <Table.Td style={tdStyle}>
-                        <Text size="sm">{label}</Text>
+                        <Tooltip label={description} position="left" withArrow>
+                            <Text size="xs" style={{ cursor: 'help' }}>{label}</Text>
+                        </Tooltip>
                     </Table.Td>
                     <Table.Td>
                         {editor}
@@ -697,10 +822,11 @@ const setByPath = (obj: any, path: string, value: any) => {
     return newObj;
 };
 
-function ObjectEditor({ schema, data, onChange }: { schema: ZodTypeAny, data: any, onChange: (data: any) => void }) {
+function ObjectEditor({ schema, data, onChange, rootData }: { schema: ZodTypeAny, data: any, onChange: (data: any) => void, rootData?: any }) {
     const theme = useMantineTheme();
     const { colorScheme } = useMantineColorScheme();
     const [expanded, setExpanded] = useState<Record<string, boolean>>({});
+    const { getAllEffectNames, getAllAttributeNames } = useGameDataStore();
     const sensors = useSensors(useSensor(PointerSensor, {
         activationConstraint: {
           distance: 8,
@@ -740,9 +866,9 @@ function ObjectEditor({ schema, data, onChange }: { schema: ZodTypeAny, data: an
     }
 
     const finalColorScheme = colorScheme === 'auto' ? 'light' : colorScheme;
-    const { getAllEffectNames } = useGameDataStore();
     const effectNames = getAllEffectNames();
-    const rows = buildEditorRows({ schema, data, onChange, expanded, toggleExpand, theme, colorScheme: finalColorScheme, depth: 0, pathPrefix: '', effectNames });
+    const availableAttributes = getAllAttributeNames();
+    const rows = buildEditorRows({ schema, data, onChange, expanded, toggleExpand, theme, colorScheme: finalColorScheme, depth: 0, pathPrefix: '', effectNames, rootData: rootData || data, availableAttributes });
 
     return (
         <DndContext
@@ -861,7 +987,12 @@ export function GenericTable<T extends ZodTypeAny>({
         if (isCreating) {
             setTableData([...tableData, editingItem]);
         } else {
-            setTableData(tableData.map((d: any) => (d.id === (editingItem as any).id ? editingItem : d)));
+            // Update existing item by id or Name
+            const itemKey = (editingItem as any).id || (editingItem as any).Name;
+            setTableData(tableData.map((d: any) => {
+                const dataKey = d.id || d.Name;
+                return dataKey === itemKey ? editingItem : d;
+            }));
         }
         handleCloseEditor();
     }
@@ -953,7 +1084,12 @@ export function GenericTable<T extends ZodTypeAny>({
   const handleDeleteClick = (item: z.infer<T>) => {
     if (onDelete) {
         onDelete(item);
-        setTableData(tableData.filter((d: any) => d.id !== (item as any).id));
+        // Filter by id or Name depending on which exists
+        const itemKey = (item as any).id || (item as any).Name;
+        setTableData(tableData.filter((d: any) => {
+            const dataKey = d.id || d.Name;
+            return dataKey !== itemKey;
+        }));
     }
   }
 
@@ -1025,8 +1161,8 @@ export function GenericTable<T extends ZodTypeAny>({
                       </Table.Tr>
                     </Table.Thead>
                     <Table.Tbody>
-                      {sortedData.map((item: any) => (
-                        <Table.Tr key={item.id} onClick={() => handleRowClick(item)} style={{ cursor: 'pointer' }}>
+                      {sortedData.map((item: any, index: number) => (
+                        <Table.Tr key={item.id || item.Name || index} onClick={() => handleRowClick(item)} style={{ cursor: 'pointer' }}>
                           {columns.map((column) => (
                             <Table.Td key={column.key}>
                               {column.key === 'actions' ? (
@@ -1078,13 +1214,22 @@ export function GenericTable<T extends ZodTypeAny>({
                     </Tabs.List>
 
                     <Tabs.Panel value="visual" pt="md">
-                      <ScrollArea style={{ height: 500 }}>
+                      <div 
+                        style={{ 
+                          height: 500, 
+                          overflowY: 'scroll',
+                          overflowX: 'hidden',
+                          scrollbarGutter: 'stable',
+                          paddingRight: '8px'
+                        }}
+                      >
                         <ObjectEditor
                           schema={zodSchema}
                           data={editingItem}
                           onChange={handleVisualChange}
+                          rootData={tableData}
                         />
-                      </ScrollArea>
+                      </div>
                     </Tabs.Panel>
 
                     <Tabs.Panel value="yaml" pt="md">

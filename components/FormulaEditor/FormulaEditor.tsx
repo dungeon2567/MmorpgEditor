@@ -18,6 +18,7 @@ import { IconFunction, IconVariable, IconCheck, IconX } from '@tabler/icons-reac
 interface FormulaEditorProps {
   value: string;
   onChange: (value: string) => void;
+  availableAttributes?: string[]; // List of available attribute names
 }
 
 interface FunctionDefinition {
@@ -46,68 +47,68 @@ interface AutocompleteItem {
 
 const BUILTIN_FUNCTIONS: FunctionDefinition[] = [
   {
-    name: 'min',
+    name: 'MIN',
     description: 'Returns the minimum of two or more values',
-    syntax: 'min(a, b, ...)',
-    examples: ['min(10, 5)', 'min(level, 100)']
+    syntax: 'MIN(a, b, ...)',
+    examples: ['MIN(10, 5)', 'MIN($Level, 100)']
   },
   {
-    name: 'max',
+    name: 'MAX',
     description: 'Returns the maximum of two or more values',
-    syntax: 'max(a, b, ...)',
-    examples: ['max(0, damage)', 'max(strength, dexterity)']
+    syntax: 'MAX(a, b, ...)',
+    examples: ['MAX(0, $Damage)', 'MAX($Strength, $Dexterity)']
   },
   {
-    name: 'floor',
+    name: 'FLOOR',
     description: 'Rounds down to the nearest integer',
-    syntax: 'floor(value)',
-    examples: ['floor(10.7)', 'floor(damage / 2)']
+    syntax: 'FLOOR(value)',
+    examples: ['FLOOR(10.7)', 'FLOOR($Damage / 2)']
   },
   {
-    name: 'ceil',
+    name: 'CEIL',
     description: 'Rounds up to the nearest integer',
-    syntax: 'ceil(value)',
-    examples: ['ceil(10.3)', 'ceil(health / 10)']
+    syntax: 'CEIL(value)',
+    examples: ['CEIL(10.3)', 'CEIL($Health / 10)']
   },
   {
-    name: 'round',
+    name: 'ROUND',
     description: 'Rounds to the nearest integer',
-    syntax: 'round(value)',
-    examples: ['round(10.5)', 'round(damage * 1.5)']
+    syntax: 'ROUND(value)',
+    examples: ['ROUND(10.5)', 'ROUND($Damage * 1.5)']
   },
   {
-    name: 'abs',
+    name: 'ABS',
     description: 'Returns the absolute value',
-    syntax: 'abs(value)',
-    examples: ['abs(-10)', 'abs(damage - armor)']
+    syntax: 'ABS(value)',
+    examples: ['ABS(-10)', 'ABS($Damage - $Armor)']
   },
   {
-    name: 'sqrt',
+    name: 'SQRT',
     description: 'Returns the square root',
-    syntax: 'sqrt(value)',
-    examples: ['sqrt(16)', 'sqrt(strength * 2)']
+    syntax: 'SQRT(value)',
+    examples: ['SQRT(16)', 'SQRT($Strength * 2)']
   },
   {
-    name: 'pow',
+    name: 'POW',
     description: 'Raises a number to a power',
-    syntax: 'pow(base, exponent)',
-    examples: ['pow(2, 3)', 'pow(level, 1.5)']
+    syntax: 'POW(base, exponent)',
+    examples: ['POW(2, 3)', 'POW($Level, 1.5)']
   },
   {
-    name: 'clamp',
+    name: 'CLAMP',
     description: 'Clamps a value between min and max',
-    syntax: 'clamp(value, min, max)',
-    examples: ['clamp(damage, 0, 100)', 'clamp(level, 1, 50)']
+    syntax: 'CLAMP(value, min, max)',
+    examples: ['CLAMP($Damage, 0, 100)', 'CLAMP($Level, 1, 50)']
   },
   {
-    name: 'lerp',
+    name: 'LERP',
     description: 'Linear interpolation between two values',
-    syntax: 'lerp(a, b, t)',
-    examples: ['lerp(0, 100, 0.5)', 'lerp(minDamage, maxDamage, 0.5)']
+    syntax: 'LERP(a, b, t)',
+    examples: ['LERP(0, 100, 0.5)', 'LERP($MinDamage, $MaxDamage, 0.5)']
   }
 ];
 
-export function FormulaEditor({ value, onChange }: FormulaEditorProps) {
+export function FormulaEditor({ value, onChange, availableAttributes = [] }: FormulaEditorProps) {
   const [validationError, setValidationError] = useState<string | null>(null);
   const [isValid, setIsValid] = useState(true);
   const [cursorPosition, setCursorPosition] = useState(0);
@@ -116,8 +117,18 @@ export function FormulaEditor({ value, onChange }: FormulaEditorProps) {
   const [selectedIndex, setSelectedIndex] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  // Create autocomplete data from built-in functions
+  // Create autocomplete data - prioritize attributes over functions
   const autocompleteData: AutocompleteItem[] = [
+    // Attributes first (higher priority) - no $ prefix
+    ...availableAttributes.map(attr => ({
+      value: attr,
+      label: attr,
+      type: 'variable' as const,
+      description: `Reference to ${attr} attribute`,
+      icon: IconVariable,
+      color: 'green' as const
+    })),
+    // Functions second
     ...BUILTIN_FUNCTIONS.map(func => ({
       value: func.name,
       label: func.name,
@@ -131,7 +142,7 @@ export function FormulaEditor({ value, onChange }: FormulaEditorProps) {
 
   useEffect(() => {
     validateFormula(value || '');
-  }, [value]);
+  }, [value, availableAttributes]);
 
   // Keep cursor position in sync with input
   useEffect(() => {
@@ -176,21 +187,27 @@ export function FormulaEditor({ value, onChange }: FormulaEditorProps) {
         throw new Error('Invalid characters in formula');
       }
 
-      // Check for unknown functions
-      const knownFunctions = BUILTIN_FUNCTIONS.map(item => item.name.toLowerCase());
-      const words = formula.match(/[a-zA-Z_][a-zA-Z0-9_]*/g) || [];
-      const unknownFunctions = words.filter(word => {
-        const wordLower = word.toLowerCase();
-        // A word is an unknown function if it's followed by a parenthesis 
-        // and is not in our list of known functions.
-        const nextCharIndex = formula.indexOf(word) + word.length;
-        const isFunctionCall = formula.length > nextCharIndex && formula[nextCharIndex] === '(';
-        
-        return isFunctionCall && !knownFunctions.includes(wordLower);
-      });
+      // Check for unknown functions (uppercase only, followed by parentheses)
+      const knownFunctions = BUILTIN_FUNCTIONS.map(item => item.name);
+      const functionMatches = formula.match(/[A-Z_][A-Z0-9_]*(?=\s*\()/g) || [];
+      const unknownFunctions = functionMatches.filter(func => 
+        !knownFunctions.includes(func)
+      );
 
       if (unknownFunctions.length > 0) {
         throw new Error(`Unknown function(s): ${unknownFunctions.join(', ')}`);
+      }
+
+      // Check for unknown variables (attribute references without $ prefix)
+      const variableMatches = formula.match(/[a-zA-Z_][a-zA-Z0-9_]*(?!\s*\()/g) || [];
+      const unknownVariables = variableMatches.filter(variable => 
+        !availableAttributes.includes(variable) && 
+        !knownFunctions.includes(variable) &&
+        !/^\d/.test(variable) // Not a number
+      );
+
+      if (unknownVariables.length > 0) {
+        throw new Error(`Unknown variable(s): ${unknownVariables.join(', ')}`);
       }
 
       setIsValid(true);
@@ -228,6 +245,7 @@ export function FormulaEditor({ value, onChange }: FormulaEditorProps) {
       return;
     }
     const partialWord = wordMatch[0];
+    
     suggestions = autocompleteData.filter(item => 
       item.label.toLowerCase().startsWith(partialWord.toLowerCase())
     );
